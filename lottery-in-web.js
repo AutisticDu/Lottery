@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bili动态抽奖助手
 // @namespace    http://tampermonkey.net/
-// @version      2.8.1
+// @version      2.9.0
 // @description  自动参与B站"关注转发抽奖"活动
 // @author       shanmite
 // @include      /^https?:\/\/space\.bilibili\.com/[0-9]*/
@@ -16,6 +16,66 @@
         213931643,
         15363359,
     ];
+        /**
+     * 浮动提示框
+     */
+    const Tooltip = (() => {
+        const DOC = document,
+        body = DOC.querySelector('body'),
+        logbox = DOC.createElement('div'),
+        style = DOC.createElement('style');
+        /**
+         * 初始化日志框
+         */
+        (() => {
+            style.setAttribute('type', 'text/css');
+            style.innerText = ".test{float:right;margin:100px;}.logbox{z-index:99999;position:fixed;top:0;right:0;max-width:400px;max-height:600px;overflow-y:scroll;scroll-behavior:smooth;}.logbox::-webkit-scrollbar{width:0;}.logline{display:flex;justify-content:flex-end;}.out{min-height:26px;line-height:26px;margin:3px 0;border-radius:6px;padding:0 10px;transition:background-color 1s;font-size:16px;color:#fff;box-shadow:1px 1px 3px 0px #000;}.outLog{background-color:#81ec81;}.outWarn{background-color:#fd2d2d;}";
+            logbox.setAttribute('class', 'logbox');
+            logbox.appendChild(style);
+            body.appendChild(logbox)
+        })();
+        /**
+         * 打印信息的公共部分
+         * @param {string} classname 
+         * @param {string} text 
+         */
+        function _add(classname, text) {
+            const div = DOC.createElement('div'), /* log行 */
+                span = DOC.createElement('span'); /* log信息 */
+            div.setAttribute('class', 'logline');
+            span.setAttribute('class', classname);
+            span.innerText = text;
+            div.appendChild(span);
+            logbox.appendChild(div);
+            setTimeout(() => {
+                span.style.color = 'transparent';
+                span.style.backgroundColor = 'transparent';
+                span.style.boxShadow = 'none';
+                setTimeout(() => {
+                    div.removeChild(span);
+                    logbox.removeChild(div)
+                }, 1000)
+            }, 4000) /* 显示5秒 */
+        }
+        /**
+         * 展示信息
+         * @param {string} text 
+         */
+        function log(text) {
+            _add('out outLog', text)
+        }
+        /**
+         * 警告信息
+         * @param {string} text 
+         */
+        function warn(text) {
+            _add('out outWarn', text)
+        }
+        return {
+            log: log,
+            warn: warn
+        }
+    })()
     /**
      * 贮存全局变量
      */
@@ -23,7 +83,7 @@
         const Cookie = document.cookie,
             a = /((?<=DedeUserID=)\d+).*((?<=bili_jct=)\w+)/g.exec(Cookie);
         if (a.length !== 3) {
-            console.log('全局变量读取失败');
+            Tooltip.warn('全局变量读取失败');
             return;
         }
         /**
@@ -158,72 +218,6 @@
         };
     })()
     /**
-     * 浮动提示框
-     */
-    class Tooltip {
-        constructor() {
-            const DOC = document,
-                self = {
-                    doc: DOC,
-                    body: DOC.querySelector('body'),
-                    logbox: DOC.createElement('div')
-                }
-            Object.assign(this, self)
-        }
-        init() {
-            const info = this,
-                body = info.body,
-                logbox = info.logbox,
-                doc = info.doc,
-                style = doc.createElement('style');
-            style.type = 'text/css'
-            style.innerText = ".test{float:right;margin:100px;}.logbox{z-index:99999;position:fixed;top:0;right:0;max-width:400px;max-height:600px;overflow-y:scroll;scroll-behavior:smooth;}.logbox::-webkit-scrollbar{width:0;}.logline{display:flex;justify-content:flex-end;}.out{min-height:26px;line-height:26px;margin:3px 0;border-radius:6px;padding:0 10px;transition:background-color 1s;font-size:16px;color:#fff;box-shadow:1px 1px 3px 0px #000;}.outLog{background-color:#81ec81;}.outWarn{background-color:#fd2d2d;}"
-            logbox.setAttribute('class', 'logbox');
-            body.appendChild(logbox);
-            logbox.appendChild(style)
-        }
-        /**
-         * 展示信息
-         * @param {string} text 
-         */
-        log(text) {
-            this._add('out outLog', text)
-        }
-        /**
-         * 警告信息
-         * @param {string} text 
-         */
-        warn(text) {
-            this._add('out outWarn', text)
-        }
-        /**
-         * 打印信息的公共部分
-         * @param {string} classname 
-         * @param {string} text 
-         */
-        _add(classname, text) {
-            const info = this,
-                logbox = info.logbox,
-                doc = info.doc,
-                div = doc.createElement('div'), /* log行 */
-                span = doc.createElement('span'); /* log信息 */
-            div.setAttribute('class', 'logline');
-            span.setAttribute('class', classname);
-            span.innerText = text;
-            div.appendChild(span);
-            logbox.appendChild(div);
-            setTimeout(() => {
-                span.style.color = 'transparent';
-                span.style.backgroundColor = 'transparent';
-                span.style.boxShadow = 'none';
-                setTimeout(() => {
-                    div.removeChild(span);
-                    logbox.removeChild(div)
-                }, 1000)
-            }, 4000) /* 显示5秒 */
-        }
-    }
-    /**
      * 基础工具
      */
     class Basic {
@@ -317,7 +311,7 @@
                     success: responseText => {
                         const res = Basic.prototype.strToJson(responseText);
                         if (res.code !== 0) {
-                            tooltip.warn('获取TagID失败');
+                            Tooltip.warn('获取TagID失败');
                             resolve(-1)
                         }
                         resolve(res.data.tag_id)
@@ -347,7 +341,7 @@
                 },
                 success: responseText => {
                     if (/"code":0/.test(responseText)) {
-                        tooltip.log('[自动关注]关注+1')
+                        Tooltip.log('[自动关注]关注+1')
                         /* 移动分区 */
                         Ajax.post({
                             url: 'https://api.bilibili.com/x/relation/tags/addUsers?cross_domain=true',
@@ -360,7 +354,7 @@
                             },
                             success: responseText => {
                                 if (/"code":0/.test(responseText)) {
-                                    tooltip.log('[移动分区]up主分区移动成功');
+                                    Tooltip.log('[移动分区]up主分区移动成功');
                                 }
                             }
                         })
@@ -390,9 +384,9 @@
                 },
                 success: responseText => {
                     if (/"code":0/.test(responseText)) {
-                        tooltip.log('[转发动态]成功转发一条动态');
+                        Tooltip.log('[转发动态]成功转发一条动态');
                     } else {
-                        tooltip.warn(`[转发动态]转发动态失败\n${responseText}`);
+                        Tooltip.warn(`[转发动态]转发动态失败\n${responseText}`);
                     }
                 }
             })
@@ -434,12 +428,13 @@
                     self.lottery(array.toString());
                 })
             } else {
-                tooltip.log(document.title)
+                Tooltip.log(document.title)
             }
         }
         /**
          * 获取第一页的动态信息
-         * 并根据抽奖动态进行相应操作
+         * 滤出抽奖信息
+         * 参与抽奖
          * @param {string} relayedStrings
          * 已转发的抽奖动态
          */
@@ -461,36 +456,66 @@
                 try {
                     attentions = Basic.prototype.strToJson(responseText).data.attentions.uids.toString();
                 } catch (error) {
-                    tooltip.warn('读取关注列表出错')
+                    Tooltip.warn('读取关注列表出错')
                 }
-                let timeout = 0;
-                mDRdata.modifyDynamicResArray.forEach((info, index, arr) => {
+                /**
+                 * 滤出的抽奖信息
+                 */
+                let lotteryCard = [];
+                for (const info of mDRdata.modifyDynamicResArray) {
+                    let isRepeat = true;
+                    let lotteryinfo = {
+                        origin_uid: undefined,
+                        origin_dynamic_id: undefined
+                    };
                     const origin_description = (typeof info.origin_description === 'undefined') ? '' : info.origin_description;
                     if (/抽奖/.test(origin_description)) {
+                        if (/关注/.test(origin_description)) {
+                            const origin_uid = info.origin_uid;
+                            const reg1 = new RegExp(origin_uid);
+                            /* 判断是否重复关注 */
+                            if (!reg1.test(attentions)) {
+                                lotteryinfo.origin_uid = origin_uid;
+                            }
+                        }
+                        if (/转发/.test(origin_description)) {
+                            const origin_dynamic_id = info.origin_dynamic_id;
+                            const reg2 = new RegExp(origin_dynamic_id);
+                            /* 判断是否重复转发 */
+                            if (!reg2.test(relayedStrings)) {
+                                lotteryinfo.origin_dynamic_id = origin_dynamic_id;
+                            }
+                        }
+                        /* 此处可添加额外功能 */
+                        for (const key in lotteryinfo) {
+                            if (typeof lotteryinfo[key] !== 'undefined') {
+                                isRepeat = false;
+                                break;
+                            }
+                        }
+                        isRepeat ? void 0 : lotteryCard.push(lotteryinfo);
+                    }
+                }
+                /**
+                 * 执行操作
+                 */
+                let timeout = 0;
+                const len = lotteryCard.length;
+                len === 0
+                    ? nextUID()
+                    : lotteryCard.forEach((lotteryinfo, index) => {
+                        const origin_uid = lotteryinfo.origin_uid,
+                            origin_dynamic_id = lotteryinfo.origin_dynamic_id;
                         setTimeout(() => {
-                            if (/关注/.test(origin_description)) {
-                                const origin_uid = info.origin_uid;
-                                const reg1 = new RegExp(origin_uid);
-                                /* 判断是否重复关注 */
-                                if (!reg1.test(attentions)) {
-                                    self.autoAttention(origin_uid)
-                                }
-                            }
-                            if (/转发/.test(origin_description)) {
-                                const origin_dynamic_id = info.origin_dynamic_id;
-                                const reg2 = new RegExp(origin_dynamic_id);
-                                /* 判断是否重复转发 */
-                                if (!reg2.test(relayedStrings)) {
-                                    self.autoRelay(info.uid, origin_dynamic_id)
-                                }
-                            }
-                            if (index === arr.length - 1) {
+                            typeof origin_uid === 'undefined' ? void 0 : self.autoAttention(origin_uid);
+                            typeof origin_dynamic_id === 'undefined' ? void 0 : self.autoRelay(GlobalVar.myUID, origin_dynamic_id);
+                            if (index === len - 1) {
+                                Tooltip.log('开始转发下一组动态');
                                 nextUID();
                             }
-                        }, timeout);
-                        timeout = timeout + 10000; /*相隔几秒操作一次防止被ban */
-                    }
-                });
+                        }, timeout)
+                        timeout = timeout + 3000;
+                    })
             })
         }
         /**
@@ -505,7 +530,7 @@
                 jsonRes = strToJson(res),
                 Data = jsonRes.data;
             if (jsonRes.code !== 0) {
-                tooltip.warn('获取动态数据出错');
+                Tooltip.warn('获取动态数据出错');
                 return null;
             }
             const offset = /(?<=next_offset":)[0-9]*/.exec(res)[0], /* 字符串防止损失精度 */
@@ -518,7 +543,7 @@
              */
             let array = [];
             if (next.has_more === 0) {
-                tooltip.log('动态数据读取完毕');
+                Tooltip.log('动态数据读取完毕');
             } else {
                 /**
                  * 空动态无cards
@@ -540,7 +565,6 @@
                             obj.description = cardToJson.item.description; /* 转发者的描述 */
                         } catch (error) {
                             obj.type = '视频或其他';
-                            tooltip.log('视频动态')
                         }
                     } else {
                         obj.origin_uid = desc.origin.uid; /* 被转发者的UID */
@@ -550,7 +574,6 @@
                             obj.origin_description = strToJson(cardToJson.origin).item.description; /* 被转发者的描述 */
                         } catch (error) {
                             obj.origin_type = '视频或其他';
-                            tooltip.log('转发的视频')
                         }
                     }
                     array.push(obj);
@@ -590,7 +613,7 @@
                                 success: responseText => {
                                     let obj = self.strToJson(responseText);
                                     if (obj.code === 0) {
-                                        tooltip.log('[新建分区]分区新建成功')
+                                        Tooltip.log('[新建分区]分区新建成功')
                                         self.tagid = obj.data.tagid /* 获取tagid */
                                         resolve()
                                     }
@@ -641,7 +664,7 @@
                             return;
                         } else {
                             allModifyDynamicResArray.push.apply(allModifyDynamicResArray, mDRArry);
-                            tooltip.log('开始读取下一页动态信息');
+                            Tooltip.log('开始读取下一页动态信息');
                             depth--;
                             if (depth === 0) {
                                 resolve(allModifyDynamicResArray);
@@ -655,17 +678,19 @@
             });
         }
     }
-    const tooltip = new Tooltip(); /* 实例化浮动提示框 */
-    tooltip.init();
-    (() => { (new Monitor(uids[0])).init() })();
-    let i = 0;
-    function nextUID() {
-        if (i === uids.length - 1) {
-            tooltip.log('[运行结束]目前无抽奖信息,可关闭此页面')
-            return;
+    /**
+     * 下一个
+     * @returns {function}
+     */
+    const nextUID = (() => {
+        let i = 0;
+        (new Monitor(uids[i])).init();
+        return () => {
+            if (i === uids.length - 1) {
+                Tooltip.log('[运行结束]目前无抽奖信息,过一会儿再来看看吧')
+                return;
+            }
+            (new Monitor(uids[++i])).init();
         }
-        i++;
-        const monitor = new Monitor(uids[i]);
-        monitor.init();
-    }
+    })()
 })();
