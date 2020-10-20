@@ -25,30 +25,30 @@ exports.HttpRequest = obj => {
     const _query_string = obj._query_string;
     const contents = formatContents(headers['Content-Type'],obj.contents);
     (()=>{
-        const reg = /^([hH][tT]{2}[pP]:\/\/|[hH][tT]{2}[pP][sS]:\/\/)(([A-Za-z0-9-~]+).)+([A-Za-z0-9-~\/])+$/;
+        const reg = /^([hH][tT]{2}[pP]:\/\/|[hH][tT]{2}[pP][sS]:\/\/)(([A-Za-z0-9-~]+).)+([A-Za-z0-9-~/])+$/;
         if (!reg.test(_url)) {
             console.log('url无效');
             return;
-        };
+        }
     })()
     /**
      * 处理options
      */
     let options = {
-        host: /(?<=https?:\/\/)[a-zA-Z\.]*(?=\/)/.exec(_url)[0],
+        host: /(?<=https?:\/\/)[a-zA-Z.]*(?=\/)/.exec(_url)[0],
         path: /(?<=https?:\/\/.*)\/.*/.exec(_url)[0],
         headers: headers,
     };
+    let query_string = '';
     switch (type) {
         case 'get':
         case 'GET':
             options.method = 'GET';
-            let query_string = '';
             if (typeof _query_string != 'undefined') {
                 query_string = stringify(_query_string);
             }
             if (query_string != '') {
-                url = _url + '?' + query_string;
+                let url = _url + '?' + query_string;
                 options.path = /(?<=https?:\/\/.*)\/.*/.exec(url)[0];
             }
             break;

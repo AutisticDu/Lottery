@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Bili动态抽奖助手
+// @name         Bili动态抽奖助手(测试专用)
 // @namespace    http://tampermonkey.net/
 // @version      2.9.1
 // @description  自动参与B站"关注转发抽奖"活动
@@ -13,8 +13,7 @@
      * uid列表
      */
     const uids = [
-        213931643,
-        15363359,
+        44678097
     ];
         /**
      * 浮动提示框

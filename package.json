@@ -4,7 +4,7 @@
   "description": "Bili动态抽奖",
   "main": "lottery-in-web.js",
   "scripts": {
-    "test": "echo hello"
+    "test": ""
   },
   "repository": {
     "type": "git",

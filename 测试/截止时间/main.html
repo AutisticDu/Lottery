@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>main</title>
+</head>
+<body>
+    <div class="shanmitemain">
+        <span id="refresh" class="shanmiterefresh"></span>
+        <span id="info" class="shanmiteclick">开奖信息</span>
+        <div class="shanmiteinfo">
+            <div>
+                <span>开奖时间: 2020/11/07 下午10:00:00 还有19天余00小时</span>
+                <a class="shanmitelink" href="https://t.bilibili.com/[源动态]" target="_blank">查看详情</a>
+                <button id="button" data-dyid="[本动态]1" type="button">删除动态</button>
+            </div>
+            <div>
+                <span>开奖时间: 2020/11/07 下午10:00:00 还有19天余00小时</span>
+                <a class="shanmitelink" href="https://t.bilibili.com/[源动态]" target="_blank">查看详情</a>
+                <button id="button" data-dyid="[本动态]2" type="button">删除动态</button>
+            </div>
+            <div>
+                <span>开奖时间: 2020/11/07 下午10:00:00 还有19天余00小时</span>
+                <a class="shanmitelink" href="https://t.bilibili.com/[源动态]" target="_blank">查看详情</a>
+                <button id="button" data-dyid="[本动态]3" type="button">删除动态</button>
+            </div>
+            <div>
+                <span>开奖时间: 2020/11/07 下午10:00:00 还有19天余00小时</span>
+                <a class="shanmitelink" href="https://t.bilibili.com/[源动态]" target="_blank">查看详情</a>
+                <button id="button" data-dyid="[本动态]4" type="button">删除动态</button>
+            </div>
+        </div>
+    </div>
+    <script>
+        function init() {
+            /* 主体区域 */
+            const shanmitemain = DOC.createElement('div');
+            shanmitemain.setAttribute('class','shanmitemain');
+            DOC.body.appendChild(shanmitemain);
+            /* 样式 */
+            const style = DOC.createElement('style');
+            style.innerText = ".shanmitemain {z-index:99999;position:fixed;right:8px;top:68%;}.shanmiteclick {display:inline-block;cursor:pointer;-webkit-user-select:none;-moz-user-select:none;width:1em;border:2px solid skyblue;background-color:#C3E7F5;transition:.3s all ease 0s;}.shanmiteclick:hover {background-color:skyblue;}.shanmiteinfo {position:absolute;overflow-y:scroll;right:2em;bottom:0;width:450px;height:300px;box-shadow:black;border:2px solid skyblue;box-shadow:0px 0px 6px 0px black;background-color:#C3E7F5;}.shanmiteinfo div {padding:2px;}"
+            shanmitemain.appendChild(style);
+            /* 点击区域 */
+            const shanmiteclick = DOC.createElement('span');
+            shanmiteclick.setAttribute('id','info');
+            shanmiteclick.setAttribute('class','shanmiteclick');
+            shanmiteclick.innerText = '开奖信息';
+            shanmitemain.appendChild(shanmiteclick);
+            /* 展示信息的区域 */
+            const shanmiteinfo = DOC.createElement('div');
+            shanmiteinfo.setAttribute('class','shanmiteinfo');
+            shanmitemain.appendChild(shanmiteinfo);
+        }
+        function addInfo(dyid) {
+            
+        }
+        const DOC = document;
+        // init();
+    </script>
+    <script>
+        const main = document.querySelector('.shanmitemain');
+        const info = main.querySelector('.shanmiteinfo');
+        info.style.display = 'block';
+        // info.style.display = 'none';
+        main.addEventListener('click',(ev)=>{
+            switch (ev.target.id) {
+                case 'refresh':
+                case 'info':
+                    if (info.style.display === 'none') {
+                        info.style.display = 'block';
+                    } else {
+                        info.style.display = 'none';
+                    }
+                    break;
+                case 'button':
+                    alert(ev.target.dataset.dyid)
+                    break;
+                default:
+                    break;
+            }
+        })
+    </script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            font-size: 12px;
+        }
+        .shanmitemain {
+            z-index: 99999;
+            position: fixed;
+            right: 8px;
+            top: 68%;
+        }
+        .shanmiterefresh {
+            position: absolute;
+            left: 0;
+            top: -2em;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            cursor: pointer;
+            background:url('https://tse2-mm.cn.bing.net/th/id/OIP.5LiyglYTGJYrttXqc20rcQHaHW?w=170&h=180&c=7&o=5&dpr=1.5&pid=1.7') no-repeat;
+            background-size: cover;
+            transition: 0.3s ease 0s;
+        }
+        .shanmiterefresh:hover {
+            transform: rotateZ(360deg)
+        }
+        .shanmiteclick {
+            display: inline-block;
+            cursor: pointer;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            width: 1em;
+            border: 2px solid skyblue;
+            background-color: #C3E7F5;
+            transition: .3s all ease 0s;
+        }
+        .shanmiteclick:hover {
+            background-color: skyblue;
+        }
+        .shanmiteinfo {
+            position: absolute;
+            overflow-y: scroll;
+            right: 2em;
+            bottom: 0;
+            width: 450px;
+            height: 300px;
+            box-shadow: black;
+            border: 2px solid skyblue;
+            box-shadow: 0px 0px 6px 0px black;
+            background-color: #C3E7F5;
+        }
+        .shanmiteinfo div {
+            padding: 2px;
+        }
+        .shanmitelink {
+            padding: 0 5px;
+        }
+    </style>
+</body>
+</html>
