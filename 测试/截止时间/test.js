@@ -14,7 +14,7 @@ HttpRequest({
     type: 'GET',
     _url: 'https://api.vc.bilibili.com/lottery_svr/v1/lottery_svr/lottery_notice',
     _query_string: {
-        dynamic_id:'440389114556429600'
+        dynamic_id:'44038911455642960'
     },
     headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.116 Safari/537.36',

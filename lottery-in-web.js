@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bili动态抽奖助手
 // @namespace    http://tampermonkey.net/
-// @version      3.0.0
+// @version      3.1.0
 // @description  自动参与B站"关注转发抽奖"活动
 // @author       shanmite
 // @include      /^https?:\/\/space\.bilibili\.com/[0-9]*/
@@ -16,14 +16,14 @@
         213931643,
         15363359,
     ];
-        /**
+    /**
      * 浮动提示框
      */
     const Tooltip = (() => {
         const DOC = document,
-        body = DOC.querySelector('body'),
-        logbox = DOC.createElement('div'),
-        style = DOC.createElement('style');
+            body = DOC.querySelector('body'),
+            logbox = DOC.createElement('div'),
+            style = DOC.createElement('style');
         /**
          * 初始化日志框
          */
@@ -327,32 +327,33 @@
          * 开奖时间
          */
         getLotteryNotice(dyid) {
-            return new Promise((resolve,reject) => {
+            return new Promise((resolve) => {
                 Ajax.get({
                     url: 'https://api.vc.bilibili.com/lottery_svr/v1/lottery_svr/lottery_notice',
                     queryStringsObj: {
-                        dynamic_id:dyid
+                        dynamic_id: dyid
                     },
                     hasCookies: false,
                     success: responseText => {
                         const res = this.strToJson(responseText);
                         if (res.code === 0) {
                             const timestamp10 = res.data.lottery_time,
-                                timestamp13 = timestamp10*1000,
+                                timestamp13 = timestamp10 * 1000,
                                 time = new Date(timestamp13);
-                                console.log(timestamp10);
-                            const remain = (()=>{
-                                const timestr = ((timestamp13 - Date.now())/86400000).toString(),
-                                    timearr = timestr.replace(/(\d+)\.(\d+)/,"$1,0.$2").split(',');
-                                return `${timearr[0]}天余${parseInt(timearr[1]*24)}小时`
+                            const remain = (() => {
+                                const timestr = ((timestamp13 - Date.now()) / 86400000).toString(),
+                                    timearr = timestr.replace(/(\d+)\.(\d+)/, "$1,0.$2").split(',');
+                                return `${timearr[0]}天余${parseInt(timearr[1] * 24)}小时`
                             })();
                             resolve({
                                 ts: timestamp10,
-                                text:`开奖时间: ${time.toLocaleString()} 还有${remain}`
+                                text: `开奖时间: ${time.toLocaleString()} 还有${remain}`
                             });
                         } else {
                             Tooltip.warn('获取开奖信息失败');
-                            reject();
+                            resolve({
+                                ts: 0
+                            })
                         }
                     }
                 })
@@ -597,7 +598,7 @@
          * @returns
          * 获取前 pages*12 个动态信息
          */
-        checkAllDynamic(hostuid,pages) {
+        checkAllDynamic(hostuid, pages) {
             const self = this,
                 mDR = self.modifyDynamicRes,
                 getOneDynamicInfo = self.getOneDynamicInfo,
@@ -663,31 +664,26 @@
          * 初始化
          */
         init() {
-            const self = this,
-                lochref = window.location.href;
-            if (/(?<=space\.bilibili\.com\/)[0-9]*(?=\/?)/.exec(lochref)[0] === GlobalVar.myUID) {
-                let ckPartition = self.checkMyPartition(); /* 检查关注分区 */
-                let cADynamic = self.checkAllDynamic(GlobalVar.myUID,5); /* 检查我的所有动态 */
-                Promise.all([ckPartition, cADynamic]).then(result => {
-                    /**
-                     * 前五页动态Array
-                     */
-                    const cADdata = result[1];
-                    /**
-                     * 储存转发过的动态信息
-                     */
-                    let array = [];
-                    for (let index = 0; index < cADdata.length; index++) {
-                        const oneDynamicObj = cADdata[index];
-                        if (typeof oneDynamicObj.origin_dynamic_id === 'string') {
-                            array.push(oneDynamicObj.origin_dynamic_id)
-                        }
+            const self = this;
+            let ckPartition = self.checkMyPartition(); /* 检查关注分区 */
+            let cADynamic = self.checkAllDynamic(GlobalVar.myUID, 5); /* 检查我的所有动态 */
+            Promise.all([ckPartition, cADynamic]).then(result => {
+                /**
+                 * 前五页动态Array
+                 */
+                const cADdata = result[1];
+                /**
+                 * 储存转发过的动态信息
+                 */
+                let array = [];
+                for (let index = 0; index < cADdata.length; index++) {
+                    const oneDynamicObj = cADdata[index];
+                    if (typeof oneDynamicObj.origin_dynamic_id === 'string') {
+                        array.push(oneDynamicObj.origin_dynamic_id)
                     }
-                    self.lottery(array.toString());
-                })
-            } else {
-                Tooltip.log(document.title)
-            }
+                }
+                self.lottery(array.toString());
+            })
         }
         /**
          * 获取第一页的动态信息
@@ -699,7 +695,7 @@
         lottery(relayedStrings) {
             const self = this;
             let getDI = self.getOneDynamicInfo(self.UID, 0);
-            getDI.then(responseText => {
+            getDI.then(async responseText => {
                 /**
                  * 最新的动态数据
                  */
@@ -728,30 +724,33 @@
                     };
                     const origin_description = (typeof info.origin_description === 'undefined') ? '' : info.origin_description;
                     if (/抽奖/.test(origin_description)) {
-                        if (/关注/.test(origin_description)) {
-                            const origin_uid = info.origin_uid;
-                            const reg1 = new RegExp(origin_uid);
-                            /* 判断是否重复关注 */
-                            if (!reg1.test(attentions)) {
-                                lotteryinfo.origin_uid = origin_uid;
+                        let oneLNotice = await self.getLotteryNotice(info.origin_dynamic_id);
+                        if (oneLNotice.ts > (Date.now()) / 1000 || oneLNotice.ts === 0) {
+                            if (/关注/.test(origin_description)) {
+                                const origin_uid = info.origin_uid;
+                                const reg1 = new RegExp(origin_uid);
+                                /* 判断是否重复关注 */
+                                if (!reg1.test(attentions)) {
+                                    lotteryinfo.origin_uid = origin_uid;
+                                }
                             }
-                        }
-                        if (/转发/.test(origin_description)) {
-                            const origin_dynamic_id = info.origin_dynamic_id;
-                            const reg2 = new RegExp(origin_dynamic_id);
-                            /* 判断是否重复转发 */
-                            if (!reg2.test(relayedStrings)) {
-                                lotteryinfo.origin_dynamic_id = origin_dynamic_id;
+                            if (/转发/.test(origin_description)) {
+                                const origin_dynamic_id = info.origin_dynamic_id;
+                                const reg2 = new RegExp(origin_dynamic_id);
+                                /* 判断是否重复转发 */
+                                if (!reg2.test(relayedStrings)) {
+                                    lotteryinfo.origin_dynamic_id = origin_dynamic_id;
+                                }
                             }
-                        }
-                        /* 此处可添加额外功能 */
-                        for (const key in lotteryinfo) {
-                            if (typeof lotteryinfo[key] !== 'undefined') {
-                                isRepeat = false;
-                                break;
+                            /* 此处可添加额外功能 */
+                            for (const key in lotteryinfo) {
+                                if (typeof lotteryinfo[key] !== 'undefined') {
+                                    isRepeat = false;
+                                    break;
+                                }
                             }
+                            isRepeat ? void 0 : lotteryCard.push(lotteryinfo);
                         }
-                        isRepeat ? void 0 : lotteryCard.push(lotteryinfo);
                     }
                 }
                 /**
@@ -780,7 +779,7 @@
     /**
      * 开奖信息与展示
      */
-    class LotteryNotice extends Basic{
+    class LotteryNotice extends Basic {
         constructor() {
             super();
             this.info = null;
@@ -792,7 +791,7 @@
             const DOC = document
             /* 主体区域 */
             const shanmitemain = DOC.createElement('div');
-            shanmitemain.setAttribute('class','shanmitemain');
+            shanmitemain.setAttribute('class', 'shanmitemain');
             DOC.body.appendChild(shanmitemain);
             /* 样式表 */
             const style = DOC.createElement('style');
@@ -800,18 +799,18 @@
             shanmitemain.appendChild(style);
             /* 点击区域 */
             const shanmiteclick = DOC.createElement('span');
-            shanmiteclick.setAttribute('id','info');
-            shanmiteclick.setAttribute('class','shanmiteclick');
+            shanmiteclick.setAttribute('id', 'info');
+            shanmiteclick.setAttribute('class', 'shanmiteclick');
             shanmiteclick.innerText = '开奖信息';
             shanmitemain.appendChild(shanmiteclick);
             /* 刷新 */
             const shanmiterefresh = DOC.createElement('span');
-            shanmiterefresh.setAttribute('id','refresh');
-            shanmiterefresh.setAttribute('class','shanmiterefresh');
+            shanmiterefresh.setAttribute('id', 'refresh');
+            shanmiterefresh.setAttribute('class', 'shanmiterefresh');
             shanmitemain.appendChild(shanmiterefresh);
             /* 展示信息的区域 */
             const shanmiteinfo = DOC.createElement('div');
-            shanmiteinfo.setAttribute('class','shanmiteinfo');
+            shanmiteinfo.setAttribute('class', 'shanmiteinfo');
             shanmitemain.appendChild(shanmiteinfo);
             this.basicAction();
         }
@@ -825,7 +824,7 @@
             self.info = info;
             info.style.display = 'none';
             self.sortInfoAndShow();
-            main.addEventListener('click',(ev)=>{
+            main.addEventListener('click', (ev) => {
                 switch (ev.target.id) {
                     case 'refresh':
                         self.sortInfoAndShow();
@@ -858,11 +857,11 @@
          */
         async fetchDynamicInfo() {
             const self = this;
-            let allMDResArray = await self.checkAllDynamic(GlobalVar.myUID,5);
+            let allMDResArray = await self.checkAllDynamic(GlobalVar.myUID, 5);
             /**
              * 滤出抽奖信息
              */
-            const _arr = allMDResArray.filter(a=>{
+            const _arr = allMDResArray.filter(a => {
                 let beFilter = false;
                 const origin_description = a.origin_description;
                 if (typeof origin_description === 'undefined') {
@@ -879,7 +878,7 @@
             /**
              * 提取主要内容
              */
-            const arr = _arr.map(a=>{
+            const arr = _arr.map(a => {
                 return {
                     dynamic_id: a.dynamic_id,
                     origin_uid: a.origin_uid,
@@ -905,10 +904,10 @@
             /**
              * 按ts从小到大排序
              */
-            protoArr.sort((a,b)=>{
+            protoArr.sort((a, b) => {
                 return a.ts - b.ts;
             })
-            protoArr.forEach(one=>{
+            protoArr.forEach(one => {
                 self.showInfo(one)
             })
             return;
@@ -932,7 +931,7 @@
              * 跳转链接
              */
             const a = DOC.createElement('a');
-            a.setAttribute('class','shanmitelink');
+            a.setAttribute('class', 'shanmitelink');
             a.href = `https://t.bilibili.com/${oneInfo.origin_dynamic_id}`;
             a.target = '_blank';
             a.innerText = '查看详情';
@@ -957,8 +956,12 @@
      */
     const startAndNextUID = (() => {
         let i = 0;
-        (new Monitor(uids[i])).init();
-        (new LotteryNotice()).init();
+        if (/(?<=space\.bilibili\.com\/)[0-9]*(?=\/?)/.exec(window.location.href)[0] === GlobalVar.myUID) {
+            (new Monitor(uids[i])).init();
+            (new LotteryNotice()).init();
+        } else {
+            Tooltip.log(document.title);
+        }
         return () => {
             if (i === uids.length - 1) {
                 Tooltip.log('[运行结束]目前无抽奖信息,过一会儿再来看看吧')
