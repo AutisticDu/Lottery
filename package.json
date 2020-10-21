@@ -4,11 +4,11 @@
   "description": "Bili动态抽奖",
   "main": "lottery-in-web.js",
   "scripts": {
-    "test": ""
+    "test": "echo hello"
   },
   "repository": {
     "type": "git",
-    "url": "none"
+    "url": "https://github.com/shanmite/Lottery.git"
   },
   "keywords": [
     "BiliBili",

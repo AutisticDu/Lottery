@@ -664,7 +664,7 @@
         init() {
             const self = this;
             let ckPartition = self.checkMyPartition(); /* 检查关注分区 */
-            let cADynamic = self.checkAllDynamic(GlobalVar.myUID,5); /* 检查我的所有动态 */
+            let cADynamic = self.checkAllDynamic(GlobalVar.myUID, 5); /* 检查我的所有动态 */
             Promise.all([ckPartition, cADynamic]).then(result => {
                 /**
                  * 前五页动态Array
@@ -723,8 +723,8 @@
                     const origin_description = (typeof info.origin_description === 'undefined') ? '' : info.origin_description;
                     if (/抽奖/.test(origin_description)) {
                         let oneLNotice = await self.getLotteryNotice(info.origin_dynamic_id);
-                        if (oneLNotice.ts > (Date.now())/1000||oneLNotice.ts === 0) {
-                            if (/关注/.test(origin_description)) {
+                        if (oneLNotice.ts > (Date.now()) / 1000 || oneLNotice.ts === 0) {
+                            {
                                 const origin_uid = info.origin_uid;
                                 const reg1 = new RegExp(origin_uid);
                                 /* 判断是否重复关注 */
@@ -732,7 +732,7 @@
                                     lotteryinfo.origin_uid = origin_uid;
                                 }
                             }
-                            if (/转发/.test(origin_description)) {
+                            {
                                 const origin_dynamic_id = info.origin_dynamic_id;
                                 const reg2 = new RegExp(origin_dynamic_id);
                                 /* 判断是否重复转发 */

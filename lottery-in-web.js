@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bili动态抽奖助手
 // @namespace    http://tampermonkey.net/
-// @version      3.1.0
+// @version      3.1.1
 // @description  自动参与B站"关注转发抽奖"活动
 // @author       shanmite
 // @include      /^https?:\/\/space\.bilibili\.com/[0-9]*/
@@ -726,7 +726,7 @@
                     if (/抽奖/.test(origin_description)) {
                         let oneLNotice = await self.getLotteryNotice(info.origin_dynamic_id);
                         if (oneLNotice.ts > (Date.now()) / 1000 || oneLNotice.ts === 0) {
-                            if (/关注/.test(origin_description)) {
+                            {
                                 const origin_uid = info.origin_uid;
                                 const reg1 = new RegExp(origin_uid);
                                 /* 判断是否重复关注 */
@@ -734,7 +734,7 @@
                                     lotteryinfo.origin_uid = origin_uid;
                                 }
                             }
-                            if (/转发/.test(origin_description)) {
+                            {
                                 const origin_dynamic_id = info.origin_dynamic_id;
                                 const reg2 = new RegExp(origin_dynamic_id);
                                 /* 判断是否重复转发 */
