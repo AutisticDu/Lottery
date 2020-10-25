@@ -17,7 +17,7 @@
 【自动】展示开奖信息  
 【手动】点击按钮自动**移除动态**并**取消关注**  
 ![效果图1](https://ftp.bmp.ovh/imgs/2020/10/2afa0b5c67cc1bea.png)  
-![效果图2](https://ftp.bmp.ovh/imgs/2020/10/e19f2cd90905e63f.png)
+![效果图2](https://ftp.bmp.ovh/imgs/2020/10/0fb926c321c124c8.png)
 ## 完善
 在源代码中的数组`uids`中储存着所监听的用户UID
 ```javascript
@@ -31,11 +31,13 @@ const uids = [
 ```
 你可**自行添加**更多`UID`以复刻其转发行为  
 
-也可将`UID`提交到[反馈](https://greasyfork.org/zh-CN/scripts/412468-bili%E5%8A%A8%E6%80%81%E6%8A%BD%E5%A5%96%E5%8A%A9%E6%89%8B/feedback)或通过[私信](https://space.bilibili.com/347692085/)通知作者进行脚本更新,参与脚本的完善
+也可将`UID`提交到[反馈](https://greasyfork.org/zh-CN/scripts/412468-bili%E5%8A%A8%E6%80%81%E6%8A%BD%E5%A5%96%E5%8A%A9%E6%89%8B/feedback)通知作者进行脚本更新,参与脚本的完善
 ## 声明
 本脚本绝对安全请放心使用(^)0(^)b  
 如有任何错误请反馈，感谢使用
 ## 交流
 QQ群:1078777380
 ## 如何更新
-![更新方式](https://ftp.bmp.ovh/imgs/2020/10/50310b2db579534a.png)
+![更新方式1](https://ftp.bmp.ovh/imgs/2020/10/50310b2db579534a.png)  
+或  
+![更新方式2](https://ftp.bmp.ovh/imgs/2020/10/6be8bc305313b9dc.png)

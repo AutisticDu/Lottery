@@ -102,12 +102,21 @@
                 '永不缺席 永不中奖 永不放弃！',
                 '万一呢',
                 '来了',
+                '[保佑][保佑]',
                 '从未中，从未停',
+                '[吃瓜]',
+                '[抠鼻][抠鼻]',
+                '秋梨膏',
                 '我还能中！让我中！！！',
                 '大家都散了吧，已经抽完了，是我的',
                 '我是天选之子',
                 '给我中一次吧！',
-                '坚持不懈，迎难而上，开拓创新！'
+                '坚持不懈，迎难而上，开拓创新！',
+                '[OK][OK]',
+                '我来抽个奖',
+                '中中中中中中',
+                '[doge][doge][doge]',
+                '我我我'
             ];
             return chat[parseInt(Math.random()*chat.length)]
         }
@@ -412,6 +421,7 @@
                     csrf: GlobalVar.csrf
                 },
                 success: responseText => {
+                    /* 重复关注code also equal 0  */
                     if (/^{"code":0/.test(responseText)) {
                         Tooltip.log('[自动关注]关注+1')
                         /* 移动分区 */
@@ -425,6 +435,7 @@
                                 csrf: GlobalVar.csrf
                             },
                             success: responseText => {
+                                /* 重复移动code also equal 0 */
                                 if (/^{"code":0/.test(responseText)) {
                                     Tooltip.log('[移动分区]up主分区移动成功');
                                 } else {
@@ -556,6 +567,7 @@
                     description: string;
                     type: string;
                     origin_uid: string;
+                    origin_uname: string;
                     origin_rid_str: string;
                     origin_dynamic_id: string;
                     origin_hasOfficialLottery: boolean;
@@ -616,6 +628,7 @@
                         obj.origin_dynamic_id = desc.orig_dy_id_str; /* 被转发者的动态的ID !!!!此为大数需使用字符串值,不然JSON.parse()会有丢失精度 */
                         obj.origin_hasOfficialLottery = (typeof cardToJson.origin_extension === 'undefined') ? false : true; /* 是否有官方抽奖 */
                         try {
+                            obj.origin_uname = strToJson(cardToJson.origin).user.name; /* 被转发者的name */
                             obj.description = cardToJson.item.content; /* 转发者的描述 */
                             obj.origin_description = strToJson(cardToJson.origin).item.description; /* 被转发者的描述 */
                         } catch (error) {
@@ -680,7 +693,21 @@
          * 指定的用户UID
          * @param {number} pages
          * 读取页数
-         * @returns {Promise<{uid: any,dynamic_id: any,uname: any,description: any,type: string,origin_uid: any,origin_rid_str: string,origin_dynamic_id: any,origin_hasOfficialLottery: boolean,origin_description: any,origin_type: string;}[]>}
+         * @returns {
+            Promise<{
+                uid: number;
+                dynamic_id: string;
+                description: string;
+                type: string;
+                origin_uid: string;
+                origin_uname: string;
+                origin_rid_str: string;
+                origin_dynamic_id: string;
+                origin_hasOfficialLottery: boolean;
+                origin_description: string;
+                origin_type: string;
+            }[]>
+        }
          * 获取前 pages*12 个动态信息
          */
         checkAllDynamic(hostuid, pages) {
@@ -890,7 +917,7 @@
             DOC.body.appendChild(shanmitemain);
             /* 样式表 */
             const style = DOC.createElement('style');
-            style.innerText = ".shanmitemain {z-index:99999;position:fixed;right:8px;top:68%;}.shanmiterefresh {position:absolute;left:0;top:-2em;width:15px;height:15px;border-radius:50%;cursor:pointer;background:url('https://tse2-mm.cn.bing.net/th/id/OIP.5LiyglYTGJYrttXqc20rcQHaHW?w=170&h=180&c=7&o=5&dpr=1.5&pid=1.7') no-repeat;background-size:cover;transition:0.3s ease 0s;}.shanmiterefresh:hover {transform:rotateZ(360deg)}.shanmiteclick {display:inline-block;cursor:pointer;-webkit-user-select:none;-moz-user-select:none;width:1em;border:2px solid skyblue;background-color:#C3E7F5;transition:.3s all ease 0s;}.shanmiteclick:hover {background-color:skyblue;}.shanmiteinfo {position:absolute;overflow-y:scroll;right:2em;bottom:0;width:450px;height:300px;box-shadow:black;border:2px solid skyblue;box-shadow:0px 0px 6px 0px black;background-color:#C3E7F5;}.shanmiteinfo div {padding:2px;}.shanmitelink {padding:0 5px;}"
+            style.innerText = ".shanmitemain {z-index:99999;position:fixed;right:8px;top:68%;}.shanmiterefresh {position:absolute;left:0;top:-2em;width:15px;height:15px;border-radius:50%;cursor:pointer;background:url('https://tse2-mm.cn.bing.net/th/id/OIP.5LiyglYTGJYrttXqc20rcQHaHW?w=170&h=180&c=7&o=5&dpr=1.5&pid=1.7') no-repeat;background-size:cover;transition:0.3s ease 0s;}.shanmiterefresh:hover {transform:rotateZ(360deg)}.shanmiteclick {display:inline-block;cursor:pointer;-webkit-user-select:none;-moz-user-select:none;width:1em;border:2px solid skyblue;background-color:#C3E7F5;transition:.3s all ease 0s;}.shanmiteclick:hover {background-color:skyblue;}.shanmiteinfos {position:absolute;overflow-y:scroll;right:2em;bottom:0;width:500px;height:300px;box-shadow:black;border:2px solid skyblue;box-shadow:0px 0px 6px 0px black;background-color:#C3E7F5;}.shanmiteinfos div {padding:2px;}.shanmitelink {padding:0 5px;}.shanmiteinfos .shanmiteinfo {position:relative;}.shanmiteinfos #button2 {margin-left:5px;}.shanmiteinfos #button2::after{content:'移除up主:' attr(data-originuname);position:absolute;top:0px;left:0px;background-color:skyblue;color:black;padding:2px;border:1px solid #fff;opacity:0;transition:0.5s opacity;}.shanmiteinfos #button2:hover::after{opacity:1;}"
             shanmitemain.appendChild(style);
             /* 点击区域 */
             const shanmiteclick = DOC.createElement('span');
@@ -905,7 +932,7 @@
             shanmitemain.appendChild(shanmiterefresh);
             /* 展示信息的区域 */
             const shanmiteinfo = DOC.createElement('div');
-            shanmiteinfo.setAttribute('class', 'shanmiteinfo');
+            shanmiteinfo.setAttribute('class', 'shanmiteinfos');
             shanmitemain.appendChild(shanmiteinfo);
             this.basicAction();
         }
@@ -915,7 +942,7 @@
         basicAction() {
             const self = this,
                 main = document.querySelector('.shanmitemain'),
-                info = main.querySelector('.shanmiteinfo');
+                info = main.querySelector('.shanmiteinfos');
             self.info = info;
             info.style.display = 'none';
             self.sortInfoAndShow();
@@ -932,8 +959,10 @@
                             info.style.display = 'none';
                         }
                         break;
-                    case 'button':
+                    case 'button1':
                         self.rmDynamic(ev.target.dataset.dyid)
+                        break;
+                    case 'button2':
                         self.cancelAttention(ev.target.dataset.originUID)
                         break;
                     default:
@@ -943,7 +972,16 @@
         }
         /**
          * 提取所需的信息
-         * @return {Promise<{ts:number,text:string,dynamic_id:number,origin_uid:number,origin_dynamic_id:string}[]>}
+         * @return {
+            Promise<{
+                ts:number;
+                text:string;
+                dynamic_id:number;
+                origin_uid:number;
+                origin_uname:string;
+                origin_dynamic_id:string
+            }[]>
+        }
          * 截止时间戳
          * 文本
          * 本动态ID
@@ -978,6 +1016,7 @@
                     dynamic_id: a.dynamic_id,
                     origin_hasOfficialLottery: a.origin_hasOfficialLottery,
                     origin_uid: a.origin_uid,
+                    origin_uname: a.origin_uname,
                     origin_dynamic_id: a.origin_dynamic_id
                 }
             })
@@ -986,9 +1025,10 @@
                 let LotteryNotice = one.origin_hasOfficialLottery
                     ? await self.getLotteryNotice(one.origin_dynamic_id) 
                     : {ts:0,text:'非官方抽奖请自行查看'};
-                LotteryNotice.dynamic_id = one.dynamic_id;//用于删除动态
-                LotteryNotice.origin_uid = one.origin_uid;//取关
-                LotteryNotice.origin_dynamic_id = one.origin_dynamic_id//用于查看开奖信息
+                LotteryNotice.dynamic_id = one.dynamic_id;/* 用于删除动态 */
+                LotteryNotice.origin_uid = one.origin_uid;/* 取关 */
+                LotteryNotice.origin_uname = one.origin_uname;/* 查看用户名 */
+                LotteryNotice.origin_dynamic_id = one.origin_dynamic_id/* 用于查看开奖信息 */
                 elemarray.push(LotteryNotice);
             }
             return elemarray;
@@ -1012,7 +1052,16 @@
         }
         /**
          * 展示一条信息
-         * @param {{ts:number,text:string,dynamic_id:number,origin_uid:number,origin_dynamic_id:string}} oneInfo
+         * @param {
+            {
+                ts:number;
+                text:string;
+                dynamic_id:number;
+                origin_uid:number;
+                origin_uname:string;
+                origin_dynamic_id:string
+            }
+        } oneInfo
          */
         showInfo(oneInfo) {
             const DOC = document;
@@ -1020,6 +1069,7 @@
              * 容纳一条信息
              */
             const div = DOC.createElement('div');
+            div.setAttribute('class', 'shanmiteinfo')
             /**
              * 主要开奖信息
              */
@@ -1034,17 +1084,27 @@
             a.target = '_blank';
             a.innerText = '查看详情';
             /**
-             * 移除按钮
+             * 删除动态
              */
-            const button = DOC.createElement('button');
-            button.id = 'button';
-            button.dataset.dyid = oneInfo.dynamic_id;
-            button.dataset.originUID = oneInfo.origin_uid;
-            button.type = 'button';
-            button.innerText = '删除动态';
+            const button1 = DOC.createElement('button');
+            button1.id = 'button1';
+            button1.dataset.dyid = oneInfo.dynamic_id;
+            button1.type = 'button';
+            button1.innerText = '删除动态';
+            /**
+             * 移除关注
+             */
+            const button2 = DOC.createElement('button');
+            button2.id = 'button2';
+            button2.dataset.originUID = oneInfo.origin_uid;
+            button2.dataset.originuname = oneInfo.origin_uname;
+            button2.type = 'button';
+            button2.innerText = '移除关注';
+            /* 链接 */
             div.appendChild(span);
             div.appendChild(a);
-            div.appendChild(button)
+            div.appendChild(button1)
+            div.appendChild(button2)
             this.info.appendChild(div);
         }
     }

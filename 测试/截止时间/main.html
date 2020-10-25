@@ -9,26 +9,12 @@
     <div class="shanmitemain">
         <span id="refresh" class="shanmiterefresh"></span>
         <span id="info" class="shanmiteclick">开奖信息</span>
-        <div class="shanmiteinfo">
-            <div>
+        <div class="shanmiteinfos">
+            <div class="shanmiteinfo">
                 <span>开奖时间: 2020/11/07 下午10:00:00 还有19天余00小时</span>
                 <a class="shanmitelink" href="https://t.bilibili.com/[源动态]" target="_blank">查看详情</a>
-                <button id="button" data-dyid="[本动态]1" type="button">删除动态</button>
-            </div>
-            <div>
-                <span>开奖时间: 2020/11/07 下午10:00:00 还有19天余00小时</span>
-                <a class="shanmitelink" href="https://t.bilibili.com/[源动态]" target="_blank">查看详情</a>
-                <button id="button" data-dyid="[本动态]2" type="button">删除动态</button>
-            </div>
-            <div>
-                <span>开奖时间: 2020/11/07 下午10:00:00 还有19天余00小时</span>
-                <a class="shanmitelink" href="https://t.bilibili.com/[源动态]" target="_blank">查看详情</a>
-                <button id="button" data-dyid="[本动态]3" type="button">删除动态</button>
-            </div>
-            <div>
-                <span>开奖时间: 2020/11/07 下午10:00:00 还有19天余00小时</span>
-                <a class="shanmitelink" href="https://t.bilibili.com/[源动态]" target="_blank">查看详情</a>
-                <button id="button" data-dyid="[本动态]4" type="button">删除动态</button>
+                <button id="button1" data-dyid="[删除动态]" type="button">删除动态</button>
+                <button id="button2" data-uid="[移除关注]" data-originuname="用户名" type="button">移除关注</button>
             </div>
         </div>
     </div>
@@ -61,7 +47,7 @@
     </script>
     <script>
         const main = document.querySelector('.shanmitemain');
-        const info = main.querySelector('.shanmiteinfo');
+        const info = main.querySelector('.shanmiteinfos');
         info.style.display = 'block';
         // info.style.display = 'none';
         main.addEventListener('click',(ev)=>{
@@ -74,8 +60,11 @@
                         info.style.display = 'none';
                     }
                     break;
-                case 'button':
+                case 'button1':
                     alert(ev.target.dataset.dyid)
+                    break;
+                case 'button2':
+                    alert(ev.target.dataset.uid)
                     break;
                 default:
                     break;
@@ -122,24 +111,46 @@
         .shanmiteclick:hover {
             background-color: skyblue;
         }
-        .shanmiteinfo {
+        .shanmiteinfos {
             position: absolute;
             overflow-y: scroll;
             right: 2em;
             bottom: 0;
-            width: 450px;
+            width: 500px;
             height: 300px;
             box-shadow: black;
             border: 2px solid skyblue;
             box-shadow: 0px 0px 6px 0px black;
             background-color: #C3E7F5;
         }
-        .shanmiteinfo div {
+        .shanmiteinfos div {
             padding: 2px;
         }
         .shanmitelink {
             padding: 0 5px;
         }
+        .shanmiteinfos .shanmiteinfo {
+            position: relative;
+        }
+        .shanmiteinfos #button2 {
+            margin-left: 5px;
+        }
+        .shanmiteinfos #button2::after{
+            content: '移除up主:' attr(data-originuname);
+            position: absolute;
+            top: 0px;
+            left: 0px;
+            background-color: skyblue;
+            color: black;
+            padding: 2px;
+            border: 1px solid #fff;
+            opacity: 0;
+            transition: 0.5s opacity;
+        }
+        .shanmiteinfos #button2:hover::after{
+            opacity: 1;
+        }
     </style>
-</body>
-</html>
+    </body>
+    
+    </html>
