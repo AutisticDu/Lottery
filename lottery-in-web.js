@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bili动态抽奖助手
 // @namespace    http://tampermonkey.net/
-// @version      3.2.0
+// @version      3.2.3
 // @description  自动参与B站"关注转发抽奖"活动
 // @author       shanmite
 // @include      /^https?:\/\/space\.bilibili\.com/[0-9]*/
@@ -15,7 +15,8 @@
     const uids = [
         213931643,
         15363359,
-        31252386
+        31252386,
+        80158015
     ];
     /**
      * 浮动提示框
@@ -104,12 +105,21 @@
                 '永不缺席 永不中奖 永不放弃！',
                 '万一呢',
                 '来了',
+                '[保佑][保佑]',
                 '从未中，从未停',
+                '[吃瓜]',
+                '[抠鼻][抠鼻]',
+                '秋梨膏',
                 '我还能中！让我中！！！',
                 '大家都散了吧，已经抽完了，是我的',
                 '我是天选之子',
                 '给我中一次吧！',
-                '坚持不懈，迎难而上，开拓创新！'
+                '坚持不懈，迎难而上，开拓创新！',
+                '[OK][OK]',
+                '我来抽个奖',
+                '中中中中中中',
+                '[doge][doge][doge]',
+                '我我我'
             ];
             return chat[parseInt(Math.random()*chat.length)]
         }
@@ -308,6 +318,7 @@
          * @param {number} offset
          * 下一页动态,
          * 初始为 0
+         * @returns {Promise<string>}
          */
         getOneDynamicInfo(UID, offset) {
             return new Promise((resolve) => {
@@ -479,7 +490,7 @@
                 data: {
                     uid: `${uid}`,
                     dynamic_id: dyid,
-                    content: `转发动态于${(new Date(Date.now())).toLocaleString()}`,
+                    content: '冲冲冲',
                     extension: '{"emoji_type":1}',
                     csrf: GlobalVar.csrf
                 },
@@ -517,25 +528,30 @@
         /**
          * 发送评论
          * @param {string} dyid
+         * cid_str
+         * @param {number} type
+         * 1(视频)
+         * 11(有图)
+         * 17(无图)
          * @param {string} msg
          */
-        sendChat(dyid,msg) {
+        sendChat(dyid,type,msg) {
             Ajax.post({
                 url: 'https://api.bilibili.com/x/v2/reply/add',
                 hasCookies: true,
                 dataType: 'application/x-www-form-urlencoded',
                 data: {
                     oid: dyid,
-                    type: 11,
+                    type: type,
                     message: msg,
                     jsonp: 'jsonp',
                     csrf: GlobalVar.csrf
                 },
                 success: responseText => {
                     if (/^{"code":0/.test(responseText)) {
-                        Tooltip.log('[自动评论]评论成功');
+                        console.log('[自动评论]评论成功');
                     } else {
-                        Tooltip.warn(`[自动评论]评论失败\n${responseText}`)
+                        console.warn(`[自动评论]评论失败`)
                     }
                 }
             })
@@ -773,100 +789,98 @@
          * @param {string} relayedStrings
          * 已转发的抽奖动态
          */
-        lottery(relayedStrings) {
+        async lottery(relayedStrings) {
             const self = this;
-            let getDI = self.getOneDynamicInfo(self.UID, 0);
-            getDI.then(async responseText => {
-                /**
-                 * 最新的动态数据
-                 */
-                const mDRdata = self.modifyDynamicRes(responseText);
-                /**
-                 * 自己的关注列表
-                 */
-                let attentions = '';
-                if (mDRdata === null) {
-                    return;
-                }
-                try {
-                    attentions = Basic.prototype.strToJson(responseText).data.attentions.uids.toString();
-                } catch (error) {
-                    Tooltip.warn('读取关注列表出错')
-                }
-                /**
-                 * 滤出的抽奖信息
-                 */
-                let lotteryCard = [];
-                for (const info of mDRdata.modifyDynamicResArray) {
-                    let isRepeat = true;
-                    let lotteryinfo = {
-                        origin_uid: undefined,
-                        origin_dynamic_id: undefined,
-                        origin_rid_str: undefined
-                    };
-                    const origin_description = (typeof info.origin_description === 'undefined') ? '' : info.origin_description;
-                    if (/抽奖/.test(origin_description)) {
-                        let oneLNotice = info.origin_hasOfficialLottery
-                            ? await self.getLotteryNotice(info.origin_dynamic_id)
-                            : {ts:Infinity,text:'非官方抽奖请自行查看'};
-                        if (oneLNotice.ts > (Date.now()) / 1000 || oneLNotice.ts === 0) {
-                            /* 判断是否重复关注 */
-                            {
-                                const origin_uid = info.origin_uid;
-                                const reg1 = new RegExp(origin_uid);
-                                if (!reg1.test(attentions)) {
-                                    lotteryinfo.origin_uid = origin_uid;
-                                }
+            let getDI = await self.getOneDynamicInfo(self.UID, 0);
+            /**
+             * 最新的动态数据
+             */
+            const mDRdata = self.modifyDynamicRes(getDI);
+            /**
+             * 自己的关注列表
+             */
+            let attentions = '';
+            if (mDRdata === null) {
+                return;
+            }
+            try {
+                attentions = Basic.prototype.strToJson(getDI).data.attentions.uids.toString();
+            } catch (error) {
+                Tooltip.warn('读取关注列表出错')
+            }
+            /**
+             * 滤出的抽奖信息
+             */
+            let lotteryCard = [];
+            for (const info of mDRdata.modifyDynamicResArray) {
+                let isRepeat = true;
+                let lotteryinfo = {
+                    origin_uid: undefined,
+                    origin_dynamic_id: undefined,
+                    origin_rid_str: undefined
+                };
+                const origin_description = (typeof info.origin_description === 'undefined') ? '' : info.origin_description;
+                if (/抽奖/.test(origin_description)) {
+                    let oneLNotice = info.origin_hasOfficialLottery
+                        ? await self.getLotteryNotice(info.origin_dynamic_id)
+                        : { ts: Infinity, text: '非官方抽奖请自行查看' };
+                    if (oneLNotice.ts > (Date.now()) / 1000 || oneLNotice.ts === 0) {
+                        /* 判断是否重复关注 */
+                        {
+                            const origin_uid = info.origin_uid;
+                            const reg1 = new RegExp(origin_uid);
+                            if (!reg1.test(attentions)) {
+                                lotteryinfo.origin_uid = origin_uid;
                             }
-                            /* 判断是否重复转发 */
-                            {
-                                const origin_dynamic_id = info.origin_dynamic_id;
-                                const reg2 = new RegExp(origin_dynamic_id);
-                                if (!reg2.test(relayedStrings)) {
-                                    lotteryinfo.origin_dynamic_id = origin_dynamic_id;
-                                }
-                            }
-                            /* 用于评论 */
-                            lotteryinfo.origin_rid_str = info.origin_rid_str;
-                            for (const key in lotteryinfo) {
-                                if (typeof lotteryinfo[key] !== 'undefined') {
-                                    isRepeat = false;
-                                    break;
-                                }
-                            }
-                            isRepeat ? void 0 : lotteryCard.push(lotteryinfo);
                         }
+                        /* 判断是否重复转发 */
+                        {
+                            const origin_dynamic_id = info.origin_dynamic_id;
+                            const reg2 = new RegExp(origin_dynamic_id);
+                            if (!reg2.test(relayedStrings)) {
+                                lotteryinfo.origin_dynamic_id = origin_dynamic_id;
+                            }
+                        }
+                        /* 用于评论 */
+                        lotteryinfo.origin_rid_str = info.origin_rid_str;
+                        for (const key in lotteryinfo) {
+                            if (typeof lotteryinfo[key] !== 'undefined') {
+                                isRepeat = false;
+                                break;
+                            }
+                        }
+                        isRepeat ? void 0 : lotteryCard.push(lotteryinfo);
                     }
                 }
-                /**
-                 * 执行操作
-                 */
-                const len = lotteryCard.length;
-                let index = 0;
-                if (len === 0) {
-                    startAndNextUID()
-                } else {
-                    for (const lotteryinfo of lotteryCard) {
-                        const origin_uid = lotteryinfo.origin_uid,
-                            origin_dynamic_id = lotteryinfo.origin_dynamic_id,
-                            origin_rid_str = lotteryinfo.origin_rid_str;
-                        if (typeof origin_uid === 'undefined' || typeof origin_dynamic_id === 'undefined' || typeof origin_rid_str === 'undefined') {
-                            void 0
-                        } else {
-                            self.autoAttention(origin_uid);
-                            self.autoRelay(GlobalVar.myUID, origin_dynamic_id),
-                                self.sendChat(origin_rid_str, GlobalVar.getChat())
-                            await GlobalVar.delay(10000);
-                        }
-                        if (index++ === len - 1) {
-                            Tooltip.log('开始转发下一组动态');
-                            startAndNextUID();
-                        } else {
-                            void 0;
-                        }
+            }
+            /**
+             * 执行操作
+             */
+            const len = lotteryCard.length;
+            let index = 0;
+            if (len === 0) {
+                startAndNextUID()
+            } else {
+                for (const lotteryinfo of lotteryCard) {
+                    const origin_uid = lotteryinfo.origin_uid,
+                        origin_dynamic_id = lotteryinfo.origin_dynamic_id,
+                        origin_rid_str = lotteryinfo.origin_rid_str;
+                    if (typeof origin_uid === 'undefined' || typeof origin_dynamic_id === 'undefined' || typeof origin_rid_str === 'undefined') {
+                        void 0
+                    } else {
+                        self.autoAttention(origin_uid);
+                        self.autoRelay(GlobalVar.myUID, origin_dynamic_id),
+                            self.sendChat(origin_rid_str,11, GlobalVar.getChat())
+                        await GlobalVar.delay(10000);
+                    }
+                    if (index++ === len - 1) {
+                        Tooltip.log('开始转发下一组动态');
+                        startAndNextUID();
+                    } else {
+                        void 0;
                     }
                 }
-            })
+            }
         }
     }
     /**
@@ -1053,6 +1067,7 @@
     const startAndNextUID = (() => {
         let i = 0;
         if (/(?<=space\.bilibili\.com\/)[0-9]*(?=\/?)/.exec(window.location.href)[0] === GlobalVar.myUID) {
+            Basic.prototype.sendChat('449626403800921162',17,(new Date(Date.now())).toLocaleString());
             (new Monitor(uids[i])).init();
             (new LotteryNotice()).init();
         } else {
