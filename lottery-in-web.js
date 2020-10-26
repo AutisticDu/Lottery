@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bili动态抽奖助手
 // @namespace    http://tampermonkey.net/
-// @version      3.2.4
+// @version      3.2.5
 // @description  自动参与B站"关注转发抽奖"活动
 // @author       shanmite
 // @include      /^https?:\/\/space\.bilibili\.com/[0-9]*/
@@ -487,6 +487,31 @@
             })
         }
         /**
+         * 动态自动点赞
+         * @param {string} dyid
+         * @returns {void}
+         */
+        autolike(dyid) {
+            Ajax.post({
+                url: 'https://api.vc.bilibili.com/dynamic_like/v1/dynamic_like/thumb',
+                hasCookies: true,
+                dataType: 'application/x-www-form-urlencoded',
+                data: {
+                    uid: GlobalVar.myUID,
+                    dynamic_id: dyid,
+                    up: 1,
+                    csrf: GlobalVar.csrf
+                },
+                success: responseText => {
+                    if (/^{"code":0/.test(responseText)) {
+                        Tooltip.log('[自动点赞]点赞成功');
+                    } else {
+                        Tooltip.warn(`[转发动态]点赞失败\n${responseText}`);
+                    }
+                }
+            })
+        }
+        /**
          * 转发前因查看是否重复转发
          * 自动转发
          * @param {Number} uid
@@ -916,6 +941,7 @@
                         void 0
                     } else {
                         self.autoAttention(origin_uid);
+                        self.autolike(origin_dynamic_id);
                         self.autoRelay(GlobalVar.myUID, origin_dynamic_id);
                         self.sendChat(origin_rid_str,11, GlobalVar.getChat())
                         await GlobalVar.delay(10000);
