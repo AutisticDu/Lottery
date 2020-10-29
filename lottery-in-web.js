@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bili动态抽奖助手
 // @namespace    http://tampermonkey.net/
-// @version      3.4.0
+// @version      3.4.1
 // @description  自动参与B站"关注转发抽奖"活动
 // @author       shanmite
 // @include      /^https?:\/\/space\.bilibili\.com/[0-9]*/
@@ -11,6 +11,7 @@
 // @grant        GM.deleteValue
 // ==/UserScript==
 (function () {
+    const version = '|version: 3.4.1';
     /**
      * uid列表与tag列表
      */
@@ -1404,7 +1405,7 @@
             setTimeout(()=>{location.reload()},3600000)/* 1h自动刷新 */
             Tooltip.log('一小时后自动刷新此页面');
             GlobalVar.getAllMyDyID();
-            Basic.prototype.sendChat('449626403800921162',(new Date(Date.now())).toLocaleString(),17);
+            Basic.prototype.sendChat('449626403800921162',(new Date(Date.now())).toLocaleString()+version,17);
             uidsAndtag.length === 0 ? void 0 : (new Monitor(uidsAndtag[i])).init();
             (new LotteryNotice()).init();
         } else {
