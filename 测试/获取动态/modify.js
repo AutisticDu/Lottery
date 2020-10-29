@@ -4,7 +4,7 @@ fs.readFile('测试/获取动态/tagdy.json',(err,data) =>{
         return;
     } else {
         const obj = modifyDynamicRes(data.toString())
-        console.log(obj)
+        console.log(obj.modifyDynamicResArray[2].description,/#.*奖.*#/.exec(obj.modifyDynamicResArray[2].description))
     }
 })
 /**
@@ -45,7 +45,6 @@ function modifyDynamicRes(res) {
         console.warn('获取动态数据出错');
         return null;
     }
-    
     const offset = typeof Data.offset === 'string'
         ? Data.offset
         : /(?<=next_offset":)[0-9]*/.exec(res)[0], /* 字符串防止损失精度 */
@@ -58,7 +57,7 @@ function modifyDynamicRes(res) {
      */
     let array = [];
     if (next.has_more === 0) {
-        console.log('动态数据读取完毕');
+        // Tooltip.log('动态数据读取完毕');
     } else {
         /**
          * 空动态无cards
@@ -69,24 +68,21 @@ function modifyDynamicRes(res) {
             let obj = {};
             const desc = onecard.desc,
                 card = onecard.card,
-                display = onecard.display,
+                // display = onecard.display,
                 userinfo = desc.user_profile.info,
                 cardToJson = strToJson(card);
             obj.uid = userinfo.uid; /* 转发者的UID */
             obj.uname = userinfo.uname;/* 转发者的name */
             obj.rid_str = desc.rid_str;/* 用于发送评论 */
+            obj.type = desc.type /* 动态类型 */
+            obj.orig_type = desc.orig_type /* 源动态类型 */
             obj.dynamic_id = desc.dynamic_id_str; /* 转发者的动态ID !!!!此为大数需使用字符串值,不然JSON.parse()会有丢失精度 */
-            typeof display.topic_info === 'object'
-                ? display.topic_info.topic_details instanceof Array
-                    ? obj.tag = display.topic_info.topic_details.map(td => td.topic_name)
-                    : void 0
-                : void 0;
-            if (desc.orig_dy_id_str === '0') {
+            obj.hasOfficialLottery = (typeof onecard.extension === 'undefined') ? false : true; /* 是否有官方抽奖 */
+            if (obj.type !== 1) {
                 try {
                     obj.description = cardToJson.item.description; /* 转发者的描述 */
-                    obj.hasOfficialLottery = (typeof onecard.extension === 'undefined') ? false : true; /* 是否有官方抽奖 */
                 } catch (error) {
-                    obj.type = '视频或其他';
+                    obj.description = '';
                 }
             } else {
                 obj.origin_uid = desc.origin.uid; /* 被转发者的UID */
@@ -97,7 +93,7 @@ function modifyDynamicRes(res) {
                     obj.origin_uname = strToJson(cardToJson.origin).user.name; /* 被转发者的name */
                     obj.origin_description = strToJson(cardToJson.origin).item.description; /* 被转发者的描述 */
                 } catch (error) {
-                    obj.origin_type = '视频或其他';
+                    obj.origin_description = '';
                 }
             }
             array.push(obj);
