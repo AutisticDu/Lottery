@@ -10,73 +10,14 @@
 // @grant        GM.getValue
 // ==/UserScript==
 (function () {
+    /**
+     * 设置
+     */
     const config = {
         version: '|version: 3.4.5',
         refresh_time: 3600000,
         model: 0
     }
-    /**
-     * 浮动提示框
-     */
-    const Tooltip = (() => {
-        const DOC = document,
-            body = DOC.querySelector('body'),
-            logbox = DOC.createElement('div'),
-            style = DOC.createElement('style');
-        /**
-         * 初始化日志框
-         */
-        (() => {
-            style.setAttribute('type', 'text/css');
-            style.innerText = ".test{float:right;margin:100px;}.logbox{z-index:99999;position:fixed;top:0;right:0;max-width:400px;max-height:600px;overflow-y:scroll;scroll-behavior:smooth;}.logbox::-webkit-scrollbar{width:0;}.logline{display:flex;justify-content:flex-end;}.out{min-height:26px;line-height:26px;margin:3px 0;border-radius:6px;padding:0 10px;transition:background-color 1s;font-size:16px;color:#fff;box-shadow:1px 1px 3px 0px #000;}.outLog{background-color:#81ec81;}.outWarn{background-color:#fd2d2d;}";
-            logbox.setAttribute('class', 'logbox');
-            logbox.appendChild(style);
-            body.appendChild(logbox)
-        })();
-        /**
-         * 打印信息的公共部分
-         * @param {string} classname 
-         * @param {string} text 
-         */
-        function _add(classname, text) {
-            const div = DOC.createElement('div'), /* log行 */
-                span = DOC.createElement('span'); /* log信息 */
-            div.setAttribute('class', 'logline');
-            span.setAttribute('class', classname);
-            span.innerText = text;
-            div.appendChild(span);
-            logbox.appendChild(div);
-            setTimeout(() => {
-                span.style.color = 'transparent';
-                span.style.backgroundColor = 'transparent';
-                span.style.boxShadow = 'none';
-                setTimeout(() => {
-                    div.removeChild(span);
-                    logbox.removeChild(div)
-                }, 1000)
-            }, 4000) /* 显示5秒 */
-        }
-        /**
-         * 展示信息
-         * @param {string} text 
-         */
-        function log(text) {
-            console.log(text);
-            _add('out outLog', text)
-        }
-        /**
-         * 警告信息
-         * @param {string} text 
-         */
-        function warn(text) {
-            console.warn(text);
-            _add('out outWarn', text)
-        }
-        return {
-            log: log,
-            warn: warn
-        }
-    })()
     /**
      * 贮存全局变量
      */
@@ -84,15 +25,15 @@
         const [myUID,csrf] = (()=>{
             const a = /((?<=DedeUserID=)\d+).*((?<=bili_jct=)\w+)/g.exec(document.cookie);
             return [a[1],a[2]]
-        })()
-        const chat = [
+        })(),
+        chat = [
             '[OK]','[星星眼]','[歪嘴]','[喜欢]','[偷笑]','[笑]','[喜极而泣]','[辣眼睛]','[吃瓜]','[奋斗]',
             '永不缺席 永不中奖 永不放弃！','万一呢','在','冲吖~','来了','万一','[保佑][保佑]','从未中，从未停','[吃瓜]','[抠鼻][抠鼻]',
             '来力','秋梨膏','[呲牙]','从不缺席','分子','可以','恰','不会吧','1','好',
             'rush','来来来','ok','冲','凑热闹','我要我要[打call]','我还能中！让我中！！！','大家都散了吧，已经抽完了，是我的','我是天选之子','给我中一次吧！',
             '坚持不懈，迎难而上，开拓创新！','[OK][OK]','我来抽个奖','中中中中中中','[doge][doge][doge]','我我我',
-        ];
-        const UIDs = [
+        ],
+        UIDs = [
             213931643,
             15363359,
             31252386,
@@ -103,8 +44,8 @@
             420788931,
             689949971,
             38970985
-        ];
-        const TAGs = [
+        ],
+        TAGs = [
             '抽奖',
             '互动抽奖',
             '转发抽奖',
@@ -112,6 +53,7 @@
         ];
         /**
          * 抽奖信息
+         * @type {(string|number)[]}
          */
         const Lottery = ((model)=>{
             let ret = undefined;
@@ -138,7 +80,7 @@
          */
         const getChat = () => {
             return chat[parseInt(Math.random()*chat.length)]
-        }
+        };
         /**
          * 从本地获取dyid
          * (如果没有就初始化)
@@ -163,7 +105,7 @@
             } else {
                 return allmydyid;
             }
-        }
+        };
         /**
          * 设置本地dyid
          * @param {string[]} dyidarr
@@ -187,7 +129,7 @@
                 Tooltip.log('新增动态id数据存储至本地');
                 return;
             }
-        }
+        };
         return {
             myUID,
             csrf,
@@ -198,10 +140,76 @@
         }
     })()
     /**
+     * 浮动提示框
+     */
+    const Tooltip = (() => {
+        const creatCompleteElement = Base.creatCompleteElement,
+        cssContent = ".logbox {z-index:99999;position:fixed;top:0;right:0;max-width:400px;max-height:600px;overflow-y:scroll;scroll-behavior:smooth;}.logbox::-webkit-scrollbar {width:0;}.outinfo {display:flex;justify-content:flex-end;line-height:26px;min-height:26px;margin:6px 0;border-radius:6px;padding:0px 10px;transition:background-color 1s;font-size:16px;color:#fff;box-shadow:1px 1px 3px 0px #000;}.Log {background-color:#81ec81;}.Warn {background-color:#fd2d2d;}",
+        /** 显示运行日志 */
+        LogBox = creatCompleteElement({
+            tagname: 'div',
+            attr: {
+                class: 'logbox',
+            },
+            children: [
+                creatCompleteElement({
+                    tagname: 'style',
+                    attr: {
+                        type: 'text/css'
+                    },
+                    text: cssContent,
+                })
+            ]
+        });
+        document.body.appendChild(LogBox);
+        const logbox = document.querySelector('.logbox');
+        /**
+         * 打印信息的公共部分
+         * @param {string} classname 
+         * @param {string} text 
+         */
+        const add = (classname, text) => {
+            const log = creatCompleteElement({
+                tagname: 'span',
+                attr: {
+                    class: classname,
+                },
+                script: el => {
+                    setTimeout(() => {
+                        el.style.color = 'transparent';
+                        el.style.backgroundColor = 'transparent';
+                        el.style.boxShadow = 'none';
+                        setTimeout(() => {
+                            logbox.removeChild(el)
+                        }, 1000)
+                    }, 4000) /* 显示5秒 */
+                },
+                text: text
+            });
+            logbox.appendChild(log);
+        };
+        /**
+         * 提示信息
+         * @param {string} text 
+         */
+        const log = text => {
+            console.log(text);
+            add('outinfo Log', text)
+        };
+        /**
+         * 警告信息
+         * @param {string} text 
+         */
+        const warn = text => {
+            console.warn(text);
+            add('outinfo Warn', text)
+        };
+        return {log,warn};
+    })()
+    /**
      * Ajax请求对象
      */
     const Ajax = (() => {
-        'use strict';
         /**
          * 发送Get请求
          * @param {Object} options
@@ -330,7 +338,7 @@
                     },
                     hasCookies: true,
                     success: responseText => {
-                        let res = Basic.strToJson(responseText)
+                        let res = Base.strToJson(responseText)
                         if (res.code === 0) {
                             Tooltip.log('[获取关注列表]成功');
                             resolve(res.data.list.toString())
@@ -385,7 +393,7 @@
                     },
                     hasCookies: false,
                     success: responseText => {
-                        const res = Basic.strToJson(responseText);
+                        const res = Base.strToJson(responseText);
                         if (res.code !== 0) {
                             Tooltip.warn('获取TagID失败');
                             resolve(-1)
@@ -458,7 +466,7 @@
                     },
                     hasCookies: false,
                     success: responseText => {
-                        const res = Basic.strToJson(responseText);
+                        const res = Base.strToJson(responseText);
                         if (res.code === 0) {
                             const timestamp10 = res.data.lottery_time,
                                 timestamp13 = timestamp10 * 1000,
@@ -560,7 +568,7 @@
                     csrf: GlobalVar.csrf
                 },
                 success: responseText => {
-                    const res = Basic.strToJson(responseText)
+                    const res = Base.strToJson(responseText)
                     if (res.code === 0) {
                         Tooltip.log('[自动取关]取关成功')
                     } else {
@@ -706,7 +714,7 @@
                                     csrf: GlobalVar.csrf
                                 },
                                 success: responseText => {
-                                    let obj = Basic.strToJson(responseText);
+                                    let obj = Base.strToJson(responseText);
                                     if (obj.code === 0) {
                                         Tooltip.log('[新建分区]分区新建成功')
                                         let tagid = obj.data.tagid /* 获取tagid */
@@ -727,7 +735,7 @@
     /**
      * 基础工具
      */
-    const Basic = {
+    const Base = {
         /**
          * 安全的将JSON字符串转为对象
          * 超出精度的数转为字符串
@@ -774,7 +782,7 @@
             }
             return _c(func.length, []);
         },
-                /**
+        /**
          * 延时函数
          * @param {number} time ms
          * @returns {Promise<void>}
@@ -785,6 +793,41 @@
                     resolve()
                 }, time)
             })
+        },
+        /**
+         * 生成一段文档片段
+         * @param {
+            {
+                tagname: string;
+                attr?: {
+                    [index: string]:string
+                };
+                script?: (el: Element) => void;
+                text?: string;
+                children?: DocumentFragment[];
+            }
+        } StructInfo
+         * @returns {DocumentFragment}
+         */
+        creatCompleteElement: (StructInfo) => {
+            const { tagname, attr, script, text, children } = StructInfo;
+            if (typeof tagname !== 'string') throw new TypeError('at tagname');
+            let frg = document.createDocumentFragment();
+            const el = document.createElement(tagname);
+            if (typeof text === 'string' && text !== '') el.textContent = text;
+            if (typeof attr === 'object') {
+                Object.entries(attr).forEach(([key, value]) => {
+                    el.setAttribute(key, value);
+                })
+            }
+            if (typeof script === 'function') script(el);
+            if (children instanceof Array) {
+                children.forEach(child => {
+                    if (child instanceof DocumentFragment) el.appendChild(child)
+                });
+            }
+            frg.appendChild(el);
+            return frg;
         }
     }
     /**
@@ -817,7 +860,7 @@
         checkAllDynamic (hostuid, pages) {
             const mDR = this.modifyDynamicRes,
                 getOneDynamicInfoByUID = API.getOneDynamicInfoByUID,
-                curriedGetOneDynamicInfoByUID = Basic.curryify(getOneDynamicInfoByUID); /* 柯里化的请求函数 */
+                curriedGetOneDynamicInfoByUID = Base.curryify(getOneDynamicInfoByUID); /* 柯里化的请求函数 */
             /**
              * 储存了特定UID的请求函数
              */
@@ -895,7 +938,7 @@
         } 返回对象,默认为null
          */
         modifyDynamicRes (res){
-            const strToJson = Basic.strToJson,
+            const strToJson = Base.strToJson,
                 jsonRes = strToJson(res),
                 Data = jsonRes.data;
             if (jsonRes.code !== 0) {
@@ -1018,7 +1061,7 @@
             } else {
                 for (const Lottery of allLottery) {
                     this.go(Lottery);
-                    await Basic.delay(20000);
+                    await Base.delay(20000);
                     if (index++ === len - 1) {
                         Tooltip.log('开始转发下一组动态');
                         await startAndNextUID();
@@ -1217,13 +1260,13 @@
             shanmiteinfos.setAttribute('class', 'shanmiteinfos');
             shanmiteinfos.innerText = '请单击右侧刷新按钮以启动或刷新'
             shanmitemain.appendChild(shanmiteinfos);
-            this.basicAction();
+            this.BaseAction();
         }
         /**
          * 基本互动操作
          * @returns {void}
          */
-        basicAction() {
+        BaseAction() {
             const self = this,
                 main = document.querySelector('.shanmitemain'),
                 infos = main.querySelector('.shanmiteinfos');

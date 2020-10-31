@@ -8,16 +8,13 @@
 </head>
 
 <body>
+    <!-- 测试是否被阻挡 -->
     <div class="test">
         <button onclick="alert('sucess')">test</button>
     </div>
     <div class="logbox">
-        <div class="logline">
-            <span class="out outLog">此为提示信息</span>
-        </div>
-        <div class="logline">
-            <span class="out outWarn">此为警告信息</span>
-        </div>
+            <span class="outinfo Log">此为提示信息</span>
+            <span class="outinfo Warn">此为警告信息</span>
     </div>
     <style>
         .test {
@@ -37,25 +34,23 @@
         .logbox::-webkit-scrollbar {
             width: 0;
         }
-        .logline {
+        .outinfo {
             display: flex;
             justify-content: flex-end;
-        }
-        .out {
-            min-height: 26px;
             line-height: 26px;
-            margin: 3px 0;
+            min-height: 26px;
+            margin: 6px 0;
             border-radius: 6px;
-            padding: 0 10px;
+            padding: 0px 10px;
             transition: background-color 1s;
             font-size: 16px;
             color: #fff;
             box-shadow: 1px 1px 3px 0px #000;
         }
-        .outLog {
+        .Log {
             background-color: #81ec81;
         }
-        .outWarn {
+        .Warn {
             background-color: #fd2d2d;
         }
     </style>

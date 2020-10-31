@@ -1,0 +1,21 @@
+{
+    "creatCompleteElement": {
+        "scope": "javascript,typescript",
+        "prefix": "cEle",
+        "body": [
+            "creatCompleteElement({",
+            "    tagname: '$1',",
+            "    attr: {",
+            "        class: '$2',",
+            "        id: '$3',",
+            "    },",
+            "    script: el => {",
+            "        el$4",
+            "    },",
+            "    text: '$5',",
+            "    children: [$6]",
+            "})",
+        ],
+        "description": "生成一段文档片段"
+    }
+}
