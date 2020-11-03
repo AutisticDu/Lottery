@@ -1,0 +1,100 @@
+{
+    "code": 0,
+    "msg": "",
+    "message": "",
+    "data": {
+        "business_id": 440389114556429600,
+        "status": 2,
+        "lottery_time": 1602777540,
+        "lottery_at_num": 0,
+        "lottery_feed_limit": 1,
+        "first_prize": 10,
+        "second_prize": 0,
+        "third_prize": 0,
+        "lottery_result": {
+            "first_prize_result": [
+                {
+                    "uid": 15951346,
+                    "name": "宮本-武藏",
+                    "face": "https://i2.hdslb.com/bfs/face/504e2275b6f2193b768f0e5292ff04b07be4426c.jpg"
+                },
+                {
+                    "uid": 73420836,
+                    "name": "很懒哎不想起",
+                    "face": "https://i0.hdslb.com/bfs/face/c0f81eea08df67b24455cc6420b8bacebd025369.jpg"
+                },
+                {
+                    "uid": 75613942,
+                    "name": "轻羽焚天",
+                    "face": "https://i0.hdslb.com/bfs/face/c3e2e76d45ba4499aa2ea530032b95cad6755270.jpg"
+                },
+                {
+                    "uid": 81516101,
+                    "name": "purlu",
+                    "face": "https://i1.hdslb.com/bfs/face/b1d779b5e36b5018ac22dac9bff2e6feecec1cde.jpg"
+                },
+                {
+                    "uid": 155229256,
+                    "name": "何以空谈",
+                    "face": "https://i1.hdslb.com/bfs/face/727c6b1919d1e52b275d680dd0a351d7374b4c82.jpg"
+                },
+                {
+                    "uid": 289589111,
+                    "name": "KTRUNE",
+                    "face": "https://i0.hdslb.com/bfs/face/cbdd9ddfe7694d01f604691ceff168dbe9a3eb42.jpg"
+                },
+                {
+                    "uid": 331988208,
+                    "name": "若-相失",
+                    "face": "https://i0.hdslb.com/bfs/face/934daa20208275dc192edf50843775e63ca20269.jpg"
+                },
+                {
+                    "uid": 401253514,
+                    "name": "御神丶峰",
+                    "face": "https://i0.hdslb.com/bfs/face/058e4f6abe2d08cc558167d97a0ad66e4409c6fb.jpg"
+                },
+                {
+                    "uid": 414760414,
+                    "name": "骗你我王八八八八八八",
+                    "face": "https://i1.hdslb.com/bfs/face/48863ea821b0551c5720ce090de03474e53c41a7.jpg"
+                },
+                {
+                    "uid": 441528352,
+                    "name": "无无不知咕咕咕",
+                    "face": "https://i0.hdslb.com/bfs/face/6f4ff6873dd118b93a61877632491681f5dfd605.jpg"
+                }
+            ]
+        },
+        "first_prize_cmt": "ipad mini 5",
+        "second_prize_cmt": "",
+        "third_prize_cmt": "",
+        "first_prize_pic": "https://i0.hdslb.com/bfs/album/f5ac7a59368199fb6fc4358c8ad7d68dc178fe77.png",
+        "second_prize_pic": "",
+        "third_prize_pic": "",
+        "need_post": 1,
+        "business_type": 1,
+        "sender_uid": 37663924,
+        "prize_type_first": {
+            "type": 0,
+            "value": {
+                "stype": 0
+            }
+        },
+        "prize_type_second": {
+            "type": 0,
+            "value": {
+                "stype": 0
+            }
+        },
+        "prize_type_third": {
+            "type": 0,
+            "value": {
+                "stype": 0
+            }
+        },
+        "pay_status": 0,
+        "ts": 1604314655,
+        "lottery_id": 51365,
+        "_gt_": 0
+    }
+}

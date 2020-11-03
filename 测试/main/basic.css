@@ -1,0 +1,17 @@
+* {
+    margin: 0;
+    padding: 0;
+    /* font-size: 14px; */
+}
+.icon {
+    background-position: 0em -8.375em;
+    width: 0.425em;
+    height: 0.4em;
+    vertical-align: middle;
+    display: inline-block;
+    background-image: url(https://s1.hdslb.com/bfs/seed/bplus-common/icon/2.2.1/bp-svg-icon.svg);
+    background-repeat: no-repeat;
+    background-size: 1em 23.225em;
+    font-size: 40px;
+    font-style: italic;
+}

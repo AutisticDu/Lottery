@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="./basic.css">
+    <link rel="stylesheet" href="./main.css">
+    <title>main</title>
+</head>
+
+<body style="background-color: rgb(255,255,255);">
+    <div class="shanmitemenu">
+        <div title="Bili互动抽奖助手" class="show">
+            <span id="showall" style="position:absolute;right: 1.5em;width: 4em;font-size: 17px;-webkit-user-select: none;">抽奖助手</span>
+            <i id="showall" class="icon" style="position:relative;top:-2px;margin-left:2px;margin-right:2px;"></i>
+        </div>
+        <div class="box" style="display: block;">
+            <div class="changetab">
+                <div id="showtab0">开奖信息</div>
+                <div id="showtab1">设置</div>
+            </div>
+            <div class="tabs">
+                <div class="tab info">
+                        <div class="card">
+                            <p style="color:#fb7299;">用户名:</p>
+                            <p style="height:100px;display:-webkit-box;overflow: hidden;-webkit-line-clamp: 5;-webkit-box-orient: vertical;">描述</p>
+                            <p style="color:#ffa726;">开奖时间: 2020/11/07 下午10:00:00 还有19天余00小时</p>
+                            <p>奖品:</p><span>未中奖</span>
+                            <a href="https://t.bilibili.com/[源动态]" target="_blank">查看详情</a>
+                            <button id="btn1" data-dyid="[删除动态]" data-uid="[移除关注]">删除动态并取关</button>
+                            <button id="btn2" data-dyid="[删除动态]">仅移除动态</button>
+                        </div>
+                </div>
+                <div class="tab config">
+                    <button id="save" style="position: absolute;right: 30px;bottom: 20px;">保存设置</button>
+                    <form id="config">
+                        <p>模式选择:</p>
+                        <label>转发官方抽奖
+                            <input type="checkbox" name="mode" checked>
+                        </label>
+                        <label>转发非官方抽奖
+                            <input type="checkbox" name="mode" checked>
+                        </label>
+                        <p>开奖时间(默认不限):</p>
+                        <input type="number" name="maxday">
+                        <span>天内</span>
+                        <p>扫描间隔:</p>
+                        <input type="number" name="refresh_time" value="42">
+                        <span>秒</span>
+                        <p>转发间隔:</p>
+                        <input type="number" name="wait" value="42">
+                        <span>秒</span>
+                        <p>转发动态评语(以下每一句英文逗号分割(句子内不要出现英文逗号)):</p>
+                        <textarea name="relay" cols="65" rows="10"></textarea>
+                        <p>随机评论内容:</p>
+                        <textarea name="chat" cols="65" rows="10"></textarea>
+                        <p>监视的UID:</p>
+                        <textarea name="UIDs" cols="65" rows="10"></textarea>
+                        <p>监视的话题:</p>
+                        <textarea name="TAGs" cols="65" rows="10"></textarea>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="./main.js"></script>
+</body>
+
+</html>

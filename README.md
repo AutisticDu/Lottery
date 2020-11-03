@@ -20,22 +20,10 @@
 【自动】隔一个小时刷新页面  
 【自动】展示开奖信息  
 【手动】点击按钮自动**移除动态**与**取消关注**  
-![效果图1](https://ftp.bmp.ovh/imgs/2020/10/2afa0b5c67cc1bea.png)  
-![效果图2](https://ftp.bmp.ovh/imgs/2020/10/0fb926c321c124c8.png)
+![效果图1](https://ftp.bmp.ovh/imgs/2020/11/4372a0823c96a2f8.png)
+![效果图2](https://ftp.bmp.ovh/imgs/2020/11/6b3fdf9c081a4721.png)
 ## 完善
-在源代码中的数组`uids`中储存着所监听的用户UID
-```javascript
-/**
- * uid与话题列表
- */
-const uids = [
-    213931643,
-    '互动抽奖'
-];
-```
-你可**自行添加**更多`UID`以复刻其转发行为  
-
-也可将`UID`提交到[反馈](https://greasyfork.org/zh-CN/scripts/412468-bili%E5%8A%A8%E6%80%81%E6%8A%BD%E5%A5%96%E5%8A%A9%E6%89%8B/feedback)通知作者进行脚本更新,参与脚本的完善
+如有问题请提交到[反馈](https://greasyfork.org/zh-CN/scripts/412468-bili%E5%8A%A8%E6%80%81%E6%8A%BD%E5%A5%96%E5%8A%A9%E6%89%8B/feedback)通知作者进行脚本更新,参与脚本的完善
 ## 声明
 本脚本绝对安全请放心使用(^)0(^)b  
 如有任何错误请反馈，感谢使用

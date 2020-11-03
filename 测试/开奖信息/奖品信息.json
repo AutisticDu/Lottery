@@ -1,0 +1,46 @@
+{
+    "code": 0,
+    "msg": "",
+    "message": "",
+    "data": {
+        "business_id": 0,
+        "status": 0,
+        "lottery_time": 1604743200,
+        "lottery_at_num": 0,
+        "lottery_feed_limit": 1,
+        "first_prize": 1,
+        "second_prize": 3,
+        "third_prize": 10,
+        "first_prize_cmt":"清空购物车基金【5000】",
+        "second_prize_cmt":"游戏基金648",
+        "third_prize_cmt":"年费大会员",
+        "first_prize_pic": "",
+        "second_prize_pic": "",
+        "third_prize_pic": "",
+        "need_post": 0,
+        "business_type": 0,
+        "sender_uid": 14110780,
+        "prize_type_first": {
+            "type": 0,
+            "value": {
+                "stype": 0
+            }
+        },
+        "prize_type_second": {
+            "type": 0,
+            "value": {
+                "stype": 0
+            }
+        },
+        "prize_type_third": {
+            "type": 0,
+            "value": {
+                "stype": 0
+            }
+        },
+        "pay_status": 0,
+        "ts": 1604295862,
+        "lottery_id": 53035,
+        "_gt_": 0
+    }
+}

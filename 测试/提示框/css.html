@@ -7,21 +7,25 @@
     <title>Document</title>
 </head>
 
-<body>
+<body style="background-color: gray;">
     <!-- 测试是否被阻挡 -->
     <div class="test">
         <button onclick="alert('sucess')">test</button>
     </div>
-    <div class="logbox">
-            <span class="outinfo Log">此为提示信息</span>
-            <span class="outinfo Warn">此为警告信息</span>
+    <div class="shanmitelogbox">
+        <div class="line">
+            <span class="Info Log">此为提示此为提示信息此为提示信息此为提示信息此为提示信息此为提示信息</span>
+        </div>
+        <div class="line">
+            <span class="Info Warn">此为警告信息</span>
+        </div>
     </div>
     <style>
         .test {
             float: right;
             margin: 100px;
         }
-        .logbox {
+        .shanmitelogbox {
             z-index: 99999;
             position: fixed;
             top: 0;
@@ -31,12 +35,14 @@
             overflow-y: scroll;
             scroll-behavior: smooth;
         }
-        .logbox::-webkit-scrollbar {
+        .shanmitelogbox::-webkit-scrollbar {
             width: 0;
         }
-        .outinfo {
+        .shanmitelogbox .line {
             display: flex;
             justify-content: flex-end;
+        }
+        .shanmitelogbox .Info {
             line-height: 26px;
             min-height: 26px;
             margin: 6px 0;
@@ -47,10 +53,10 @@
             color: #fff;
             box-shadow: 1px 1px 3px 0px #000;
         }
-        .Log {
+        .shanmitelogbox .Log {
             background-color: #81ec81;
         }
-        .Warn {
+        .shanmitelogbox .Warn {
             background-color: #fd2d2d;
         }
     </style>
