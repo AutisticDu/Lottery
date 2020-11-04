@@ -13,8 +13,27 @@
 (async function () {
     "use strict"
     const Script = {
-        version: '|version: 3.5.0',
-        author: 'shanmite'
+        version: '|version: 3.5.1',
+        author: '@shanmite',
+        UIDs: [
+            213931643,
+            15363359,
+            31252386,
+            80158015,
+            678772444,
+            35719643,
+            223748830,
+            420788931,
+            689949971,
+            38970985
+        ],
+        TAGs: [
+            '抽奖',
+            '互动抽奖',
+            '转发抽奖',
+            '动态抽奖',
+            '转发赠书'
+        ]
     }
     /**
      * 基础工具
@@ -247,24 +266,6 @@
             'rush', '来来来', 'ok', '冲', '凑热闹', '我要我要[打call]', '我还能中！让我中！！！', '大家都散了吧，已经抽完了，是我的', '我是天选之子', '给我中一次吧！',
             '坚持不懈，迎难而上，开拓创新！', '[OK][OK]', '我来抽个奖', '中中中中中中', '[doge][doge][doge]', '我我我',
         ],
-        UIDs: [
-            213931643,
-            15363359,
-            31252386,
-            80158015,
-            678772444,
-            35719643,
-            223748830,
-            420788931,
-            689949971,
-            38970985
-        ],
-        TAGs: [
-            '抽奖',
-            '互动抽奖',
-            '转发抽奖',
-            '动态抽奖'
-        ]
     }
     let configstr = await Base.storage.get('config');
     if (typeof configstr === 'undefined') {
@@ -330,7 +331,7 @@
              * @type {(string|number)[]}
              */
             Lottery: (()=>{
-                return config.UIDs.concat(config.TAGs);
+                return Script.UIDs.concat(Script.TAGs);
             })(),
             getAllMyLotteryInfo: async() => {
                 const allMyLotteryInfo = await Base.storage.get('AllMyLotteryInfo');
@@ -1181,34 +1182,39 @@
             this.tagid = await API.checkMyPartition(); /* 检查关注分区 */
             this.attentionList = await API.getAttentionList(GlobalVar.myUID);
             this.AllMyLotteryInfo = await GlobalVar.getAllMyLotteryInfo()
-            let cADynamic = await this.checkAllDynamic(GlobalVar.myUID, 2); /* 检查我的所有动态 */
-            /**
-             * 储存转发过的动态信息
-             */
-            for (let index = 0; index < cADynamic.length; index++) {
-                const {dynamic_id,origin_dynamic_id,origin_description} = cADynamic[index];
-                if (typeof origin_dynamic_id === 'string'&&/抽/.test(origin_description)) {
-                    await GlobalVar.addLotteryInfo(dynamic_id,origin_dynamic_id,0)
+            const isAdd = await this.startLottery();
+            if (isAdd) {
+                let cADynamic = await this.checkAllDynamic(GlobalVar.myUID, 2); /* 检查我的所有动态 */
+                /**
+                 * 储存转发过的动态信息
+                 */
+                for (let index = 0; index < cADynamic.length; index++) {
+                    const {dynamic_id,origin_dynamic_id,origin_description} = cADynamic[index];
+                    if (typeof origin_dynamic_id === 'string'&&/抽/.test(origin_description)) {
+                        await GlobalVar.addLotteryInfo(dynamic_id,origin_dynamic_id,0)
+                    }
                 }
+                this.clearDynamic();
             }
-            this.startLottery();
-            this.clearDynamic();
         }
         /**
          * 启动
+         * @returns {Promise<boolean>}
          */
         async startLottery() {
             const allLottery = await this.filterLotteryInfo();
             const len = allLottery.length;
             let index = 0;
             if(len === 0){
-                eventBus.emit('Turn_on_the_Monitor')
+                eventBus.emit('Turn_on_the_Monitor');
+                return false;
             } else {
                 for (const Lottery of allLottery) {
                     await this.go(Lottery);
                     if (index++ === len - 1) {
                         Tooltip.log('开始转发下一组动态');
-                        eventBus.emit('Turn_on_the_Monitor')
+                        eventBus.emit('Turn_on_the_Monitor');
+                        return true;
                     } else {
                         void 0;
                     }
@@ -1299,7 +1305,7 @@
                         Tooltip.warn('未关注无法移动分区');
                     })
                 }
-                if (typeof rid === 'string'&&config.model[1] === '1') {
+                if (typeof rid === 'string'&&config.model[0] === '1') {
                     API.sendChat(rid, Base.getRandomStr(config.chat), type);
                 }
                 await Base.delay(Number(config.wait));
@@ -1357,7 +1363,7 @@
                                     attr: {
                                         id: 'showall',
                                         class: 'icon',
-                                        style: "position:relative;top:-2px;margin-left:2px;margin-right:2px;"
+                                        style: "position:relative;top:-2px;margin-left:2px;margin-right:2px;border: 1px dashed skyblue;"
                                     },
                                 })
                             ]
@@ -1425,6 +1431,10 @@
                                                     children: [
                                                         creatCompleteElement({
                                                             tagname: 'p',
+                                                            text: '当前版本'+Script.version+Script.author,
+                                                        }),
+                                                        creatCompleteElement({
+                                                            tagname: 'p',
                                                             text: '模式选择',
                                                         }),
                                                         creatCompleteElement({
@@ -1472,30 +1482,30 @@
                                                         }),
                                                         creatCompleteElement({
                                                             tagname: 'p',
-                                                            text: '再次扫描间隔:',
+                                                            text: '再次扫描间隔(完成所有转发后进行停止等待,于指定时间间隔后再次进行操作):',
                                                         }),
                                                         creatCompleteElement({
                                                             tagname: 'input',
                                                             attr: {
                                                                 type: 'number',
                                                                 name: 'scan_time',
-                                                                value: config.scan_time,
+                                                                value: (Number(config.scan_time) / 60000).toString(),
                                                             }
                                                         }),
                                                         creatCompleteElement({
                                                             tagname: 'span',
-                                                            text: '秒',
+                                                            text: '分钟',
                                                         }),
                                                         creatCompleteElement({
                                                             tagname: 'p',
-                                                            text: '转发间隔:',
+                                                            text: '转发间隔(每条动态的转发间隔时间):',
                                                         }),
                                                         creatCompleteElement({
                                                             tagname: 'input',
                                                             attr: {
                                                                 type: 'number',
                                                                 name: 'wait',
-                                                                value: config.wait,
+                                                                value: (Number(config.wait) / 1000).toString(),
                                                             }
                                                         }),
                                                         creatCompleteElement({
@@ -1504,7 +1514,7 @@
                                                         }),
                                                         creatCompleteElement({
                                                             tagname: 'p',
-                                                            text: '转发动态评语(以下每一句英文逗号分割(句子内不要出现英文逗号)):',
+                                                            text: '转发动态评语(!注意!以下每一句英文逗号分割(句子内不要出现英文逗号)):',
                                                         }),
                                                         creatCompleteElement({
                                                             tagname: 'textarea',
@@ -1533,26 +1543,16 @@
                                                             text: '监视的UID:',
                                                         }),
                                                         creatCompleteElement({
-                                                            tagname: 'textarea',
-                                                            attr: {
-                                                                cols: '65',
-                                                                rows: '10',
-                                                                name: 'UIDs'
-                                                            },
-                                                            text: config.UIDs.toString(),
+                                                            tagname: 'p',
+                                                            text: Script.UIDs.toString(),
                                                         }),
                                                         creatCompleteElement({
                                                             tagname: 'p',
                                                             text: '监视的话题:',
                                                         }),
                                                         creatCompleteElement({
-                                                            tagname: 'textarea',
-                                                            attr: {
-                                                                cols: '65',
-                                                                rows: '10',
-                                                                name: 'TAGs'
-                                                            },
-                                                            text: config.TAGs.toString(),
+                                                            tagname: 'p',
+                                                            text: Script.TAGs.toString(),
                                                         }),
                                                     ]
                                                 })
@@ -1609,20 +1609,16 @@
                                 wait: '',
                                 relay: [],
                                 chat: [],
-                                UIDs: [],
-                                TAGs: []
                                 }
                         configForm.mode[0].checked ? newConfig.model = '1' : newConfig.model = '0';
                         for (let i = 1; i < 2; i++) {
                             configForm.mode[i].checked ? newConfig.model += '1' : newConfig.model += '0';
                         }
                         newConfig.maxday = configForm['maxday'].value === '' ? '' : configForm['maxday'].value;
-                        newConfig.scan_time = configForm.scan_time.value;
-                        newConfig.wait = configForm.wait.value;
+                        newConfig.scan_time = (Number(configForm.scan_time.value) * 60000).toString();
+                        newConfig.wait = (Number(configForm.wait.value) * 1000).toString();
                         newConfig.relay = configForm.relay.value.split(',');
                         newConfig.chat = configForm.chat.value.split(',');
-                        newConfig.UIDs = configForm.UIDs.value.split(',').filter(a=>a!=='').map(Number);
-                        newConfig.TAGs = configForm.TAGs.value.split(',').filter(a=>a!=='');
                         config = newConfig;
                         eventBus.emit('Modify_settings',JSON.stringify(newConfig));
                     }
@@ -1817,6 +1813,7 @@
             Tooltip.log(document.title);
             return;
         }
+        if (!/Chrome/.test(navigator.appVersion)) {alert('请使用chromium内核的浏览器(谷歌浏览器、新版Edge浏览器等)');return}
         /* 注册事件 */
         {
             {
