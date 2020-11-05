@@ -940,6 +940,7 @@
         } 获取前 pages*12 个动态信息
          */
         async checkAllDynamic (hostuid, pages) {
+            Tooltip.log(`准备读取${pages}页自己的动态信息`);
             const mDR = this.modifyDynamicRes,
                 getOneDynamicInfoByUID = API.getOneDynamicInfoByUID,
                 curriedGetOneDynamicInfoByUID = Base.curryify(getOneDynamicInfoByUID); /* 柯里化的请求函数 */
@@ -954,6 +955,7 @@
             let allModifyDynamicResArray = [];
             let offset = '0';
             for (let i = 0; i < pages; i++) {
+                Tooltip.log(`正在读取第${i+1}页动态`);
                 let OneDynamicInfo = await hadUidGetOneDynamicInfoByUID(offset);
                 const mDRdata = mDR(OneDynamicInfo);
                 if (mDRdata === null) {
@@ -966,10 +968,11 @@
                 const mDRArry = mDRdata.modifyDynamicResArray,
                     nextinfo = mDRdata.nextinfo;
                 if (nextinfo.has_more === 0) {
+                    Tooltip.log(`成功读取${i+1}页信息(已经是最后一页了故无法读取更多)`);
                     break;
                 } else {
                     allModifyDynamicResArray.push.apply(allModifyDynamicResArray, mDRArry);
-                    Tooltip.log('开始读取下一页动态信息');
+                    i + 1 < pages ? Tooltip.log(`开始读取第${i+2}页动态信息`) : Tooltip.log(`${pages}页信息全部成功读取完成`);
                     offset = nextinfo.next_offset;
                 }
             }
@@ -1090,12 +1093,14 @@
          */
         async getLotteryInfoByTag() {
             const self = this,
-                tag_id = await API.getTagIDByTagName(self.tag_name),
+                tag_name = self.tag_name,
+                tag_id = await API.getTagIDByTagName(tag_name),
                 hotdy = await API.getHotDynamicInfoByTagID(tag_id),
                 modDR = self.modifyDynamicRes(hotdy);
             if(modDR === null) return null;
+            Tooltip.log(`开始获取带话题#${tag_name}#的动态信息`);
             let mDRdata = modDR.modifyDynamicResArray;
-            const newdy = await API.getOneDynamicInfoByTag(self.tag_name,modDR.nextinfo.next_offset);
+            const newdy = await API.getOneDynamicInfoByTag(tag_name,modDR.nextinfo.next_offset);
             mDRdata.push.apply(mDRdata, self.modifyDynamicRes(newdy).modifyDynamicResArray);
             const fomatdata = mDRdata.map(o=>{
                 const hasOrigin = o.type === 1
@@ -1109,6 +1114,7 @@
                     hasOfficialLottery: o.hasOfficialLottery
                 }
             })
+            Tooltip.log(`成功获取带话题#${tag_name}#的动态信息`);
             return fomatdata
         }
         /**
@@ -1181,8 +1187,8 @@
                  * 储存转发过的动态信息
                  */
                 for (let index = 0; index < cADynamic.length; index++) {
-                    const {dynamic_id,origin_dynamic_id,origin_description} = cADynamic[index];
-                    if (typeof origin_dynamic_id === 'string'&&/抽/.test(origin_description)) {
+                    const {type,dynamic_id,origin_dynamic_id,origin_description} = cADynamic[index];
+                    if (type === 1&& typeof origin_description !== 'undefined') {
                         await GlobalVar.addLotteryInfo(dynamic_id,origin_dynamic_id,0)
                     }
                 }
@@ -1249,8 +1255,8 @@
                 const description = typeof info.des === 'string' ? info.des : '';
                 if(info.hasOfficialLottery && model[0] == '1') {
                     const oneLNotice = await API.getLotteryNotice(info.dyid);
-                    await GlobalVar.addLotteryInfo('',info.dyid,oneLNotice.ts)
                     isLottery = oneLNotice.ts > (Date.now() / 1000) && oneLNotice.ts < maxday;
+                    isLottery ? await GlobalVar.addLotteryInfo('',info.dyid,oneLNotice.ts) : void 0;
                 } else if(model[1] == '1') {
                     isLottery = /[关转]/.test(description) && !info.befilter;
                 }
@@ -1732,24 +1738,30 @@
                             tagname: 'p',
                             attr: {
                                 title: info.origin_description,
-                                style: 'height:100px;display:-webkit-box;overflow: hidden;-webkit-line-clamp: 5;-webkit-box-orient: vertical;'
+                                style: 'height:40px;color:gray;display:-webkit-box;overflow: hidden;-webkit-line-clamp: 2;-webkit-box-orient: vertical;'
                             },
                             text: info.origin_description
                         }),
                         creatCompleteElement({
                             tagname: 'p',
                             attr: {
-                                style: 'color:#ffa726;'
+                                style: 'color:red;'
                             },
                             text: info.text
                         }),
                         creatCompleteElement({
                             tagname: 'p',
+                            attr: {
+                                style: 'color:#ffa726;'
+                            },
                             text: '奖品:'+info.item
                         }),
                         creatCompleteElement({
                             tagname: 'span',
-                            text: info.isMe+'  '
+                            attr: {
+                                style: 'color:green;'
+                            },
+                            text: info.isMe+'   '
                         }),
                         creatCompleteElement({
                             tagname: 'a',

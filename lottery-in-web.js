@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bili动态抽奖助手
 // @namespace    http://tampermonkey.net/
-// @version      3.5.2
+// @version      3.5.3
 // @description  自动参与B站"关注转发抽奖"活动
 // @author       shanmite
 // @include      /^https?:\/\/space\.bilibili\.com/[0-9]*/
@@ -13,7 +13,7 @@
 (async function () {
     "use strict"
     const Script = {
-        version: '|version: 3.5.2',
+        version: '|version: 3.5.3',
         author: '@shanmite',
         UIDs: [
             213931643,
@@ -32,16 +32,6 @@
             '互动抽奖',
             '转发抽奖',
             '动态抽奖',
-            '转发关注',
-            '转发评论抽奖',
-            '转发动态抽奖',
-            '抽奖活动',
-            '转发关注抽奖',
-            '转发互动抽奖',
-            '转发+关注抽奖',
-            '转发关注评论抽奖',
-            '转发评论互动抽奖',
-            '转发+关注+评论抽奖'
         ]
     }
     /**
@@ -1212,7 +1202,7 @@
                  */
                 for (let index = 0; index < cADynamic.length; index++) {
                     const {type,dynamic_id,origin_dynamic_id,origin_description} = cADynamic[index];
-                    if (type === 1 && /[抽关转]/.test(origin_description)) {
+                    if (type === 1&& typeof origin_description !== 'undefined') {
                         await GlobalVar.addLotteryInfo(dynamic_id,origin_dynamic_id,0)
                     }
                 }
@@ -1762,24 +1752,30 @@
                             tagname: 'p',
                             attr: {
                                 title: info.origin_description,
-                                style: 'height:100px;display:-webkit-box;overflow: hidden;-webkit-line-clamp: 5;-webkit-box-orient: vertical;'
+                                style: 'height:40px;color:gray;display:-webkit-box;overflow: hidden;-webkit-line-clamp: 2;-webkit-box-orient: vertical;'
                             },
                             text: info.origin_description
                         }),
                         creatCompleteElement({
                             tagname: 'p',
                             attr: {
-                                style: 'color:#ffa726;'
+                                style: 'color:red;'
                             },
                             text: info.text
                         }),
                         creatCompleteElement({
                             tagname: 'p',
+                            attr: {
+                                style: 'color:#ffa726;'
+                            },
                             text: '奖品:'+info.item
                         }),
                         creatCompleteElement({
                             tagname: 'span',
-                            text: info.isMe+'  '
+                            attr: {
+                                style: 'color:green;'
+                            },
+                            text: info.isMe+'   '
                         }),
                         creatCompleteElement({
                             tagname: 'a',
