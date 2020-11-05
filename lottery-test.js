@@ -13,27 +13,12 @@
 (async function () {
     "use strict"
     const Script = {
-        version: '|version: 3.5.1',
+        version: '|version: 3.5.2',
         author: '@shanmite',
         UIDs: [
-            213931643,
-            15363359,
-            31252386,
-            80158015,
-            678772444,
-            35719643,
-            223748830,
-            420788931,
-            689949971,
-            38970985
+            44678097
         ],
-        TAGs: [
-            '抽奖',
-            '互动抽奖',
-            '转发抽奖',
-            '动态抽奖',
-            '转发赠书'
-        ]
+        TAGs: []
     }
     /**
      * 基础工具
@@ -356,16 +341,17 @@
             },
             /**
              * 
-             * @param {string} dyid
+             * @param {string|''} dyid
              * @param {string} odyid
-             * @param {number} ts
+             * @param {number|0} ts
              */
             addLotteryInfo: async (dyid, odyid, ts) => {
                 const allMyLotteryInfo = await module.getAllMyLotteryInfo();
                 let obj = JSON.parse(allMyLotteryInfo);
                 Object.prototype.hasOwnProperty.call(obj, odyid) ? void 0 : obj[odyid] = [];
-                obj[odyid][0] = dyid;
-                obj[odyid][1] = ts;
+                const [_dyid,_ts] = [obj[odyid][0],obj[odyid][1]];
+                obj[odyid][0] = typeof _dyid === 'undefined' ? dyid : dyid === '' ? _dyid : dyid;
+                obj[odyid][1] = typeof _ts === 'undefined' ? ts : ts === 0 ? _ts : ts;
                 await Base.storage.set('AllMyLotteryInfo', JSON.stringify(obj));
                 Tooltip.log('新增数据存储至本地');
             },
@@ -1146,7 +1132,7 @@
                 modDR = self.modifyDynamicRes(dy);
             if(modDR === null) return null;
             const mDRdata = modDR.modifyDynamicResArray,
-                fomatdata = mDRdata.map(o=>{
+                _fomatdata = mDRdata.map(o=>{
                     return {
                         uid: o.origin_uid,
                         dyid: o.origin_dynamic_id,
@@ -1157,6 +1143,12 @@
                         hasOfficialLottery: o.origin_hasOfficialLottery
                     }
                 })
+            const fomatdata = _fomatdata.filter(a => {
+                if (a.type === 0) {
+                    return false
+                }
+                return true
+            })
             return fomatdata
         }
     }
@@ -1669,7 +1661,7 @@
                 if (typeof origin_description === 'undefined') {
                     return beFilter;
                 } else {
-                    if (/[关转]/.test(origin_description)) {
+                    if (/[奖关转]/.test(origin_description)) {
                         beFilter = true;
                     } else {
                         return beFilter;
@@ -1757,7 +1749,7 @@
                         }),
                         creatCompleteElement({
                             tagname: 'span',
-                            text: info.isMe
+                            text: info.isMe+'  '
                         }),
                         creatCompleteElement({
                             tagname: 'a',
@@ -1813,9 +1805,9 @@
             Tooltip.log(document.title);
             return;
         }
-        if (!/Chrome/.test(navigator.appVersion)) {alert('请使用chromium内核的浏览器(谷歌浏览器、新版Edge浏览器等)');return}
+        if (/(compatible|Trident)/.test(navigator.appVersion)) {alert('当前浏览器内核为IE内核，请使用非IE内核浏览器!');return}
         /* 注册事件 */
-        {
+        { 
             {
                 let i = 0;
                 eventBus.on('Turn_on_the_Monitor', () => {

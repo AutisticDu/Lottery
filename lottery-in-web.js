@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bili动态抽奖助手
 // @namespace    http://tampermonkey.net/
-// @version      3.5.1
+// @version      3.5.2
 // @description  自动参与B站"关注转发抽奖"活动
 // @author       shanmite
 // @include      /^https?:\/\/space\.bilibili\.com/[0-9]*/
@@ -13,7 +13,7 @@
 (async function () {
     "use strict"
     const Script = {
-        version: '|version: 3.5.1',
+        version: '|version: 3.5.2',
         author: '@shanmite',
         UIDs: [
             213931643,
@@ -32,7 +32,16 @@
             '互动抽奖',
             '转发抽奖',
             '动态抽奖',
-            '转发赠书'
+            '转发关注',
+            '转发评论抽奖',
+            '转发动态抽奖',
+            '抽奖活动',
+            '转发关注抽奖',
+            '转发互动抽奖',
+            '转发+关注抽奖',
+            '转发关注评论抽奖',
+            '转发评论互动抽奖',
+            '转发+关注+评论抽奖'
         ]
     }
     /**
@@ -356,16 +365,17 @@
             },
             /**
              * 
-             * @param {string} dyid
+             * @param {string|''} dyid
              * @param {string} odyid
-             * @param {number} ts
+             * @param {number|0} ts
              */
             addLotteryInfo: async (dyid, odyid, ts) => {
                 const allMyLotteryInfo = await module.getAllMyLotteryInfo();
                 let obj = JSON.parse(allMyLotteryInfo);
                 Object.prototype.hasOwnProperty.call(obj, odyid) ? void 0 : obj[odyid] = [];
-                obj[odyid][0] = dyid;
-                obj[odyid][1] = ts;
+                const [_dyid,_ts] = [obj[odyid][0],obj[odyid][1]];
+                obj[odyid][0] = typeof _dyid === 'undefined' ? dyid : dyid === '' ? _dyid : dyid;
+                obj[odyid][1] = typeof _ts === 'undefined' ? ts : ts === 0 ? _ts : ts;
                 await Base.storage.set('AllMyLotteryInfo', JSON.stringify(obj));
                 Tooltip.log('新增数据存储至本地');
             },
@@ -954,6 +964,7 @@
         } 获取前 pages*12 个动态信息
          */
         async checkAllDynamic (hostuid, pages) {
+            Tooltip.log(`准备读取${pages}页自己的动态信息`);
             const mDR = this.modifyDynamicRes,
                 getOneDynamicInfoByUID = API.getOneDynamicInfoByUID,
                 curriedGetOneDynamicInfoByUID = Base.curryify(getOneDynamicInfoByUID); /* 柯里化的请求函数 */
@@ -968,6 +979,7 @@
             let allModifyDynamicResArray = [];
             let offset = '0';
             for (let i = 0; i < pages; i++) {
+                Tooltip.log(`正在读取第${i+1}页动态`);
                 let OneDynamicInfo = await hadUidGetOneDynamicInfoByUID(offset);
                 const mDRdata = mDR(OneDynamicInfo);
                 if (mDRdata === null) {
@@ -980,10 +992,11 @@
                 const mDRArry = mDRdata.modifyDynamicResArray,
                     nextinfo = mDRdata.nextinfo;
                 if (nextinfo.has_more === 0) {
+                    Tooltip.log(`成功读取${i+1}页信息(已经是最后一页了故无法读取更多)`);
                     break;
                 } else {
                     allModifyDynamicResArray.push.apply(allModifyDynamicResArray, mDRArry);
-                    Tooltip.log('开始读取下一页动态信息');
+                    i + 1 < pages ? Tooltip.log(`开始读取第${i+2}页动态信息`) : Tooltip.log(`${pages}页信息全部成功读取完成`);
                     offset = nextinfo.next_offset;
                 }
             }
@@ -1104,12 +1117,14 @@
          */
         async getLotteryInfoByTag() {
             const self = this,
-                tag_id = await API.getTagIDByTagName(self.tag_name),
+                tag_name = self.tag_name,
+                tag_id = await API.getTagIDByTagName(tag_name),
                 hotdy = await API.getHotDynamicInfoByTagID(tag_id),
                 modDR = self.modifyDynamicRes(hotdy);
             if(modDR === null) return null;
+            Tooltip.log(`开始获取带话题#${tag_name}#的动态信息`);
             let mDRdata = modDR.modifyDynamicResArray;
-            const newdy = await API.getOneDynamicInfoByTag(self.tag_name,modDR.nextinfo.next_offset);
+            const newdy = await API.getOneDynamicInfoByTag(tag_name,modDR.nextinfo.next_offset);
             mDRdata.push.apply(mDRdata, self.modifyDynamicRes(newdy).modifyDynamicResArray);
             const fomatdata = mDRdata.map(o=>{
                 const hasOrigin = o.type === 1
@@ -1123,6 +1138,7 @@
                     hasOfficialLottery: o.hasOfficialLottery
                 }
             })
+            Tooltip.log(`成功获取带话题#${tag_name}#的动态信息`);
             return fomatdata
         }
         /**
@@ -1146,7 +1162,7 @@
                 modDR = self.modifyDynamicRes(dy);
             if(modDR === null) return null;
             const mDRdata = modDR.modifyDynamicResArray,
-                fomatdata = mDRdata.map(o=>{
+                _fomatdata = mDRdata.map(o=>{
                     return {
                         uid: o.origin_uid,
                         dyid: o.origin_dynamic_id,
@@ -1157,6 +1173,12 @@
                         hasOfficialLottery: o.origin_hasOfficialLottery
                     }
                 })
+            const fomatdata = _fomatdata.filter(a => {
+                if (a.type === 0) {
+                    return false
+                }
+                return true
+            })
             return fomatdata
         }
     }
@@ -1189,8 +1211,8 @@
                  * 储存转发过的动态信息
                  */
                 for (let index = 0; index < cADynamic.length; index++) {
-                    const {dynamic_id,origin_dynamic_id,origin_description} = cADynamic[index];
-                    if (typeof origin_dynamic_id === 'string'&&/抽/.test(origin_description)) {
+                    const {type,dynamic_id,origin_dynamic_id,origin_description} = cADynamic[index];
+                    if (type === 1 && /[抽关转]/.test(origin_description)) {
                         await GlobalVar.addLotteryInfo(dynamic_id,origin_dynamic_id,0)
                     }
                 }
@@ -1257,8 +1279,8 @@
                 const description = typeof info.des === 'string' ? info.des : '';
                 if(info.hasOfficialLottery && model[0] == '1') {
                     const oneLNotice = await API.getLotteryNotice(info.dyid);
-                    await GlobalVar.addLotteryInfo('',info.dyid,oneLNotice.ts)
                     isLottery = oneLNotice.ts > (Date.now() / 1000) && oneLNotice.ts < maxday;
+                    isLottery ? await GlobalVar.addLotteryInfo('',info.dyid,oneLNotice.ts) : void 0;
                 } else if(model[1] == '1') {
                     isLottery = /[关转]/.test(description) && !info.befilter;
                 }
@@ -1669,7 +1691,7 @@
                 if (typeof origin_description === 'undefined') {
                     return beFilter;
                 } else {
-                    if (/[关转]/.test(origin_description)) {
+                    if (/[奖关转]/.test(origin_description)) {
                         beFilter = true;
                     } else {
                         return beFilter;
@@ -1757,7 +1779,7 @@
                         }),
                         creatCompleteElement({
                             tagname: 'span',
-                            text: info.isMe
+                            text: info.isMe+'  '
                         }),
                         creatCompleteElement({
                             tagname: 'a',
@@ -1813,9 +1835,9 @@
             Tooltip.log(document.title);
             return;
         }
-        if (!/Chrome/.test(navigator.appVersion)) {alert('请使用chromium内核的浏览器(谷歌浏览器、新版Edge浏览器等)');return}
+        if (/(compatible|Trident)/.test(navigator.appVersion)) {alert('当前浏览器内核为IE内核，请使用非IE内核浏览器!');return}
         /* 注册事件 */
-        {
+        { 
             {
                 let i = 0;
                 eventBus.on('Turn_on_the_Monitor', () => {
