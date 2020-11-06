@@ -1457,9 +1457,11 @@
                                                                     tagname: 'input',
                                                                     attr: {
                                                                         type: 'checkbox',
-                                                                        name: 'mode',
-                                                                        checked: 'checked'
+                                                                        name: 'mode'
                                                                     },
+                                                                    script: el=>{
+                                                                        config.model[0] === '1' ? el.checked = 'checked' : void 0;
+                                                                    }
                                                                 })
                                                             ]
                                                         }),
@@ -1471,9 +1473,11 @@
                                                                     tagname: 'input',
                                                                     attr: {
                                                                         type: 'checkbox',
-                                                                        name: 'mode',
-                                                                        checked: 'checked'
+                                                                        name: 'mode'
                                                                     },
+                                                                    script: el=>{
+                                                                        config.model[1] === '1' ? el.checked = 'checked' : void 0;
+                                                                    }
                                                                 })
                                                             ]
                                                         }),

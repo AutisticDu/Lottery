@@ -13,12 +13,12 @@
 (async function () {
     "use strict"
     const Script = {
-        version: '|version: 3.5.2',
+        version: '|version: 3.5.3',
         author: '@shanmite',
-        UIDs: [
-            44678097
-        ],
-        TAGs: []
+        UIDs: [],
+        TAGs: [
+            '抽奖',
+            ]
     }
     /**
      * 基础工具
@@ -1443,9 +1443,11 @@
                                                                     tagname: 'input',
                                                                     attr: {
                                                                         type: 'checkbox',
-                                                                        name: 'mode',
-                                                                        checked: 'checked'
+                                                                        name: 'mode'
                                                                     },
+                                                                    script: el=>{
+                                                                        config.model[0] === '1' ? el.checked = 'checked' : void 0;
+                                                                    }
                                                                 })
                                                             ]
                                                         }),
@@ -1457,9 +1459,11 @@
                                                                     tagname: 'input',
                                                                     attr: {
                                                                         type: 'checkbox',
-                                                                        name: 'mode',
-                                                                        checked: 'checked'
+                                                                        name: 'mode'
                                                                     },
+                                                                    script: el=>{
+                                                                        config.model[1] === '1' ? el.checked = 'checked' : void 0;
+                                                                    }
                                                                 })
                                                             ]
                                                         }),
