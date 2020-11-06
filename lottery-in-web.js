@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bili动态抽奖助手
 // @namespace    http://tampermonkey.net/
-// @version      3.5.3
+// @version      3.5.4
 // @description  自动参与B站"关注转发抽奖"活动
 // @author       shanmite
 // @include      /^https?:\/\/space\.bilibili\.com/[0-9]*/
@@ -13,7 +13,7 @@
 (async function () {
     "use strict"
     const Script = {
-        version: '|version: 3.5.3',
+        version: '|version: 3.5.4',
         author: '@shanmite',
         UIDs: [
             213931643,
@@ -1234,12 +1234,12 @@
             }
         }
         /**
-         * 保持1500条动态
+         * 保持800条动态
          */
         async clearDynamic() {
             const AllMyLotteryInfo = JSON.parse(await GlobalVar.getAllMyLotteryInfo());
             const keyArr = Object.keys(AllMyLotteryInfo);
-            if (keyArr.length > 1500) {
+            if (keyArr.length > 800) {
                 for (let i = 0; i < keyArr.length - 1500; i++) {
                     let dyid = AllMyLotteryInfo[keyArr[i]][0];
                     API.rmDynamic(dyid);
@@ -1419,7 +1419,18 @@
                                             tagname: 'div',
                                             attr: {
                                                 class: 'tab info',
-                                            }
+                                            },
+                                            children: [
+                                                creatCompleteElement({
+                                                    tagname: 'button',
+                                                    attr: {
+                                                        title: '查看是否中奖\n移除过期动态',
+                                                        id: 'checkme',
+                                                        style: 'position: absolute;right: 30px;bottom: 20px;'
+                                                    },
+                                                    text: '自检',
+                                                })
+                                            ]
                                         }),
                                         creatCompleteElement({
                                             tagname: 'div',
@@ -1616,7 +1627,28 @@
                     case 'showtab1': {
                         show(1);
                     }
-                        break
+                        break;
+                    case 'checkme': {
+                        alert('仅能查看官方抽奖');
+                        (async()=>{
+                            let i = 0;
+                            const str = await GlobalVar.getAllMyLotteryInfo()
+                                , AllMyLotteryInfo = JSON.parse(str);
+                            for (const odyid in AllMyLotteryInfo) {
+                                i++;
+                                if ({}.hasOwnProperty.call(AllMyLotteryInfo,odyid)) {
+                                    const {dyid,ts} = AllMyLotteryInfo[odyid];
+                                    if (ts < (Date.now() / 1000) && ts !== 0) {
+                                        const {isMe} = await API.getLotteryNotice(dyid);
+                                        isMe === '中奖了！！！'?alert(`恭喜！！！中奖了 前往https://t.bilibili.com/${dyid}查看`): void 0;
+                                        API.rmDynamic(dyid)
+                                    }
+                                }
+                            }
+                            alert(`${i}条动态查看完毕`)
+                        })()
+                    }
+                        break;
                     case 'save': {
                         let newConfig = {
                                 model: '',

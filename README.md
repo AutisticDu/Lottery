@@ -20,8 +20,8 @@
 【自动】隔一个小时刷新页面  
 【自动】展示开奖信息  
 【手动】点击按钮自动**移除动态**与**取消关注**  
-![效果图1](https://ftp.bmp.ovh/imgs/2020/11/4372a0823c96a2f8.png)
-![效果图2](https://ftp.bmp.ovh/imgs/2020/11/6b3fdf9c081a4721.png)
+![效果图1](https://ftp.bmp.ovh/imgs/2020/11/7413e908d3e56925.png)
+![效果图2](https://ftp.bmp.ovh/imgs/2020/11/19b734261174485d.png)
 ## 完善
 如有问题请提交到[反馈](https://greasyfork.org/zh-CN/scripts/412468-bili%E5%8A%A8%E6%80%81%E6%8A%BD%E5%A5%96%E5%8A%A9%E6%89%8B/feedback)通知作者进行脚本更新,参与脚本的完善
 ## 声明
