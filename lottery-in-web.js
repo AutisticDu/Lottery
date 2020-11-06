@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bili动态抽奖助手
 // @namespace    http://tampermonkey.net/
-// @version      3.5.4
+// @version      3.5.5
 // @description  自动参与B站"关注转发抽奖"活动
 // @author       shanmite
 // @include      /^https?:\/\/space\.bilibili\.com/[0-9]*/
@@ -13,7 +13,7 @@
 (async function () {
     "use strict"
     const Script = {
-        version: '|version: 3.5.4',
+        version: '|version: 3.5.5',
         author: '@shanmite',
         UIDs: [
             213931643,
@@ -257,6 +257,7 @@
         maxday: '', /* 不限 */
         scan_time: '1800000', /* 30min */
         wait: '20000', /* 20s */
+        blacklist: '',
         relay: ['转发动态'],
         chat: [
             '[OK]', '[星星眼]', '[歪嘴]', '[喜欢]', '[偷笑]', '[笑]', '[喜极而泣]', '[辣眼睛]', '[吃瓜]', '[奋斗]',
@@ -1024,16 +1025,15 @@
         modifyDynamicRes (res){
             const strToJson = Base.strToJson,
                 jsonRes = strToJson(res),
-                Data = jsonRes.data;
+                {data} = jsonRes;
             if (jsonRes.code !== 0) {
-                console.warn('获取动态数据出错');
+                Tooltip.warn('获取动态数据出错,可能是访问太频繁');
                 return null;
             }
-            const offset = typeof Data.offset === 'string'
-                ? Data.offset
-                : /(?<=next_offset":)[0-9]*/.exec(res)[0], /* 字符串防止损失精度 */
-                next = {
-                    has_more: Data.has_more,
+            /* 字符串防止损失精度 */
+            const offset = typeof data.offset === 'string' ? data.offset : /(?<=next_offset":)[0-9]*/.exec(res)[0]
+                , next = {
+                    has_more: data.has_more,
                     next_offset: offset
                 };
             /**
@@ -1046,41 +1046,32 @@
                 /**
                  * 空动态无cards
                  */
-                const Cards = Data.cards;
+                const Cards = data.cards;
                 Cards.forEach(onecard => {
                     /**临时储存单个动态中的信息 */
                     let obj = {};
-                    const desc = onecard.desc,
-                        card = onecard.card,
-                        userinfo = desc.user_profile.info,
-                        cardToJson = strToJson(card);
-                    obj.uid = userinfo.uid; /* 转发者的UID */
-                    obj.uname = userinfo.uname;/* 转发者的name */
+                    const {desc,card} = onecard
+                        , {info} = desc.user_profile
+                        , cardToJson = strToJson(card);
+                    obj.uid = info.uid; /* 转发者的UID */
+                    obj.uname = info.uname;/* 转发者的name */
                     obj.rid_str = desc.rid_str;/* 用于发送评论 */
                     obj.type = desc.type /* 动态类型 */
                     obj.orig_type = desc.orig_type /* 源动态类型 */
                     obj.dynamic_id = desc.dynamic_id_str; /* 转发者的动态ID !!!!此为大数需使用字符串值,不然JSON.parse()会有丢失精度 */
-                    obj.hasOfficialLottery = (typeof onecard.extension === 'undefined') ? false : true; /* 是否有官方抽奖 */
-                    if (obj.type !== 1) {
-                        try {
-                            let item = cardToJson.item;
-                            obj.description = item.content || item.description; /* 转发者的描述 */
-                        } catch (error) {
-                            obj.description = '';
-                        }
-                    } else {
+                    const {extension} = onecard;
+                    obj.hasOfficialLottery = (typeof extension === 'undefined') ? false : typeof extension.lott === 'undefined' ? false : true; /* 是否有官方抽奖 */
+                    const item = cardToJson.item || {};
+                    obj.description = item.content || item.description || ''; /* 转发者的描述 */
+                    if (obj.type === 1) {
                         obj.origin_uid = desc.origin.uid; /* 被转发者的UID */
                         obj.origin_rid_str = desc.origin.rid_str /* 被转发者的rid(用于发评论) */
                         obj.origin_dynamic_id = desc.orig_dy_id_str; /* 被转发者的动态的ID !!!!此为大数需使用字符串值,不然JSON.parse()会有丢失精度 */
-                        obj.origin_hasOfficialLottery = (typeof cardToJson.origin_extension === 'undefined') ? false : true; /* 是否有官方抽奖 */
-                        try {
-                            let origin = strToJson(cardToJson.origin)
-                            let item = origin.item;
-                            obj.origin_uname = origin.user.name || origin.user.uname; /* 被转发者的name */
-                            obj.origin_description = typeof item.description === 'undefined' ? item.content : item.description; /* 被转发者的描述 */
-                        } catch (error) {
-                            obj.origin_description = '';
-                        }
+                        const { origin_extension } = cardToJson || {};
+                        obj.origin_hasOfficialLottery = typeof origin_extension === 'undefined' ? false : typeof origin_extension.lott === 'undefined' ? false : true; /* 是否有官方抽奖 */
+                        const { user, item } = strToJson(cardToJson.origin) || {};
+                        obj.origin_uname = typeof user === 'undefined' ? '' : user.name || user.uname || ''; /* 被转发者的name */
+                        obj.origin_description = typeof item === 'undefined' ? '' : item.content || item.description || ''; /* 被转发者的描述 */
                     }
                     array.push(obj);
                 });
@@ -1261,35 +1252,33 @@
                 protoLotteryInfo = typeof self.UID === 'number' ? await self.getLotteryInfoByUID() : await self.getLotteryInfoByTag();
             if(protoLotteryInfo === null) return [];
             let alllotteryinfo = [];
-            const model = config.model;
-            const maxday = config.maxday === '' ? Infinity : (Number(config.maxday) * 86400);
+            const {model,_maxday,blacklist} = config;
+            const maxday = _maxday === '' ? Infinity : (Number(_maxday) * 86400);
             for (const info of protoLotteryInfo) {
+                const {uid,dyid,befilter,rid,des,type,hasOfficialLottery} = info;
                 let onelotteryinfo = {};
                 let isLottery = false;
-                const description = typeof info.des === 'string' ? info.des : '';
-                if(info.hasOfficialLottery && model[0] == '1') {
-                    const oneLNotice = await API.getLotteryNotice(info.dyid);
+                const description = typeof des === 'string' ? des : '';
+                if(hasOfficialLottery && model[0] == '1') {
+                    const oneLNotice = await API.getLotteryNotice(dyid);
                     isLottery = oneLNotice.ts > (Date.now() / 1000) && oneLNotice.ts < maxday;
-                    isLottery ? await GlobalVar.addLotteryInfo('',info.dyid,oneLNotice.ts) : void 0;
+                    isLottery ? await GlobalVar.addLotteryInfo('',dyid,oneLNotice.ts) : void 0;
                 } else if(model[1] == '1') {
-                    isLottery = /[关转]/.test(description) && !info.befilter;
+                    isLottery = /[关转]/.test(description) && !befilter;
                 }
                 if(isLottery) {
-                    /* 判断是否重复关注 */
-                    const uid = info.uid;
                     const reg1 = new RegExp(uid);
+                    const reg2 = new RegExp(dyid);
+                    if (reg1.test(blacklist)||reg2.test(blacklist)) continue;
+                    /* 判断是否关注过 */
                     reg1.test(self.attentionList) ? void 0 : onelotteryinfo.uid = uid;
-                    /* 判断是否重复转发 */
-                    const dynamic_id = info.dyid;
-                    const reg2 = new RegExp(dynamic_id);
-                    /**从本地读取的dyid */
-                    reg2.test(self.AllMyLotteryInfo) ? void 0 : onelotteryinfo.dyid = dynamic_id;
+                    /* 判断是否转发过 */
+                    reg2.test(self.AllMyLotteryInfo) ? void 0 : onelotteryinfo.dyid = dyid;
                     /* 用于评论 */
-                    onelotteryinfo.type = (info.type === 2) ? 11 : (info.type === 4) ? 17 : 0;
-                    onelotteryinfo.rid = info.rid;
-                    typeof onelotteryinfo.uid === 'undefined' && typeof onelotteryinfo.dyid === 'undefined'
-                        ? void 0
-                        : alllotteryinfo.push(onelotteryinfo);
+                    onelotteryinfo.type = (type === 2) ? 11 : (type === 4) ? 17 : 0;
+                    onelotteryinfo.rid = rid;
+                    if (typeof onelotteryinfo.uid === 'undefined' && typeof onelotteryinfo.dyid === 'undefined') continue;
+                    alllotteryinfo.push(onelotteryinfo);
                 }
             }
             return alllotteryinfo
@@ -1541,6 +1530,20 @@
                                                         }),
                                                         creatCompleteElement({
                                                             tagname: 'p',
+                                                            text: '此处存放黑名单(用户UID或动态的ID):',
+                                                        }),
+                                                        creatCompleteElement({
+                                                            tagname: 'textarea',
+                                                            attr: {
+                                                                cols: '65',
+                                                                rows: '10',
+                                                                name: 'blacklist',
+                                                                placeholder: "动态的id指的是点进动态之后链接中的那一串数字,此处内容格式无特殊要求"
+                                                            },
+                                                            text: config.blacklist,
+                                                        }),
+                                                        creatCompleteElement({
+                                                            tagname: 'p',
                                                             text: '转发动态评语(!注意!以下每一句英文逗号分割(句子内不要出现英文逗号)):',
                                                         }),
                                                         creatCompleteElement({
@@ -1655,6 +1658,7 @@
                                 maxday: '',
                                 scan_time: '',
                                 wait: '',
+                                blacklist: '',
                                 relay: [],
                                 chat: [],
                                 }
@@ -1665,6 +1669,7 @@
                         newConfig.maxday = configForm['maxday'].value === '' ? '' : configForm['maxday'].value;
                         newConfig.scan_time = (Number(configForm.scan_time.value) * 60000).toString();
                         newConfig.wait = (Number(configForm.wait.value) * 1000).toString();
+                        newConfig.blacklist = configForm.blacklist.value;
                         newConfig.relay = configForm.relay.value.split(',');
                         newConfig.chat = configForm.chat.value.split(',');
                         config = newConfig;
