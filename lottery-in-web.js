@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bili动态抽奖助手
 // @namespace    http://tampermonkey.net/
-// @version      3.5.6
+// @version      3.5.7
 // @description  自动参与B站"关注转发抽奖"活动
 // @author       shanmite
 // @include      /^https?:\/\/space\.bilibili\.com/[0-9]*/
@@ -119,7 +119,7 @@
         } StructInfo
          * @returns {DocumentFragment}
          */
-        creatCompleteElement: (StructInfo) => {
+        createCompleteElement: (StructInfo) => {
             const { tagname, attr, script, text, children } = StructInfo;
             if (typeof tagname !== 'string') throw new TypeError('at tagname');
             let frg = document.createDocumentFragment();
@@ -174,16 +174,16 @@
      * 浮动提示框
      */
     const Tooltip = (() => {
-        const creatCompleteElement = Base.creatCompleteElement,
+        const createCompleteElement = Base.createCompleteElement,
         cssContent = ".shanmitelogbox {z-index:99999;position:fixed;top:0;right:0;max-width:400px;max-height:600px;overflow-y:scroll;scroll-behavior:smooth;}.shanmitelogbox::-webkit-scrollbar {width:0;}.shanmitelogbox .line {display:flex;justify-content:flex-end;}.shanmitelogbox .Info {line-height:26px;min-height:26px;margin:6px 0;border-radius:6px;padding:0px 10px;transition:background-color 1s;font-size:16px;color:#fff;box-shadow:1px 1px 3px 0px #000;}.shanmitelogbox .Log {background-color:#81ec81;}.shanmitelogbox .Warn {background-color:#fd2d2d;}",
         /** 显示运行日志 */
-        LogBox = creatCompleteElement({
+        LogBox = createCompleteElement({
             tagname: 'div',
             attr: {
                 class: 'shanmitelogbox',
             },
             children: [
-                creatCompleteElement({
+                createCompleteElement({
                     tagname: 'style',
                     attr: {
                         type: 'text/css'
@@ -200,7 +200,7 @@
          * @param {string} text 
          */
         const add = (classname, text) => {
-            const log = creatCompleteElement({
+            const log = createCompleteElement({
                 tagname: 'div',
                 attr: {
                     class: 'line',
@@ -211,7 +211,7 @@
                     }, 6000)/* 自动移除 */
                 },
                 children: [
-                    creatCompleteElement({
+                    createCompleteElement({
                         tagname: 'span',
                         attr: {
                             class: classname,
@@ -1182,7 +1182,7 @@
          * 初始化
          */
         async init() {
-            if (config.model === '00') return;
+            if (config.model === '00') {Tooltip.log('已关闭所有转发行为');return}
             this.tagid = await API.checkMyPartition(); /* 检查关注分区 */
             this.attentionList = await API.getAttentionList(GlobalVar.myUID);
             this.AllMyLotteryInfo = await GlobalVar.getAllMyLotteryInfo()
@@ -1253,8 +1253,8 @@
                 protoLotteryInfo = typeof self.UID === 'number' ? await self.getLotteryInfoByUID() : await self.getLotteryInfoByTag();
             if(protoLotteryInfo === null) return [];
             let alllotteryinfo = [];
-            const {model,_maxday,blacklist} = config;
-            const maxday = _maxday === '-1' ? Infinity : (Number(_maxday) * 86400);
+            const {model,maxday:_maxday,blacklist} = config;
+            const maxday = _maxday === '-1'||_maxday === '' ? Infinity : (Number(_maxday) * 86400);
             for (const info of protoLotteryInfo) {
                 const {uid,dyid,befilter,rid,des,type,hasOfficialLottery} = info;
                 let onelotteryinfo = {};
@@ -1329,30 +1329,30 @@
             this.sortInfoAndShow()
         }
         initUI() {
-            const creatCompleteElement = Base.creatCompleteElement
+            const createCompleteElement = Base.createCompleteElement
                 , cssContent = ".shanmitemenu {position:fixed;z-index:99999;right:30px;top:68%;}.shanmitemenu .icon {background-position:0em -8.375em;width:0.425em;height:0.4em;vertical-align:middle;display:inline-block;background-image:url(https://s1.hdslb.com/bfs/seed/bplus-common/icon/2.2.1/bp-svg-icon.svg);background-repeat:no-repeat;background-size:1em 23.225em;font-size:40px;font-style:italic;}.shanmitemenu .show {position:relative;overflow:hidden;padding-left:0px;transition:0.3s all 0.1s cubic-bezier(0, 0.53, 0.15, 0.99);cursor:pointer;color:#178bcf;}.shanmitemenu .show:hover {padding-left:75px;}.shanmitemenu .box {position:absolute;right:20px;bottom:20px;background-color:#E5F4FB;padding:5px;border-radius:5px;box-shadow:grey 0px 0px 10px 0px;width:550px;height:350px;}.shanmitemenu button {font-size:14px;padding:0 5px;}.shanmitemenu .changetab {display:flex;-webkit-user-select:none;}.shanmitemenu .changetab div {margin:0 0 0 10px;padding:3px;border-radius:6px;border:2px solid #26c6da;font-size:14px;cursor:pointer;transition:background-color .3s ease 0s;background-color:#87cfeb80;}.shanmitemenu .changetab div:hover {background-color:skyblue;}.shanmitemenu .tab {display:none;overflow:hidden;overflow-y:scroll;height:310px;margin:3px;}.shanmitemenu .tab .card {font-size:15px;margin:5px;padding:2px;border-radius:5px;background-color:#ffffff ;box-shadow:gray 0px 0px 4px 0px;}.shanmitemenu .bottom {display:flex;justify-content:flex-end;align-items:flex-end;}.shanmitemenu .bottom button{margin-left:10px;}"
-                , frg = creatCompleteElement({
+                , frg = createCompleteElement({
                     tagname: 'div',
                     attr: {
                         class: 'shanmitemenu',
                     },
                     text: '',
                     children: [
-                        creatCompleteElement({
+                        createCompleteElement({
                             tagname: 'style',
                             attr: {
                                 type: 'text/css'
                             },
                             text: cssContent,
                         }),
-                        creatCompleteElement({
+                        createCompleteElement({
                             tagname: 'div',
                             attr: {
                                 title: 'Bili互动抽奖助手',
                                 class: 'show',
                             },
                             children: [
-                                creatCompleteElement({
+                                createCompleteElement({
                                     tagname: 'span',
                                     attr: {
                                         id: 'showall',
@@ -1360,7 +1360,7 @@
                                     },
                                     text: '抽奖助手',
                                 }),
-                                creatCompleteElement({
+                                createCompleteElement({
                                     tagname: 'i',
                                     attr: {
                                         id: 'showall',
@@ -1370,27 +1370,27 @@
                                 })
                             ]
                         }),
-                        creatCompleteElement({
+                        createCompleteElement({
                             tagname: 'div',
                             attr: {
                                 class: 'box',
                                 style: 'display: none;'
                             },
                             children: [
-                                creatCompleteElement({
+                                createCompleteElement({
                                     tagname: 'div',
                                     attr: {
                                         class: 'changetab',
                                     },
                                     children: [
-                                        creatCompleteElement({
+                                        createCompleteElement({
                                             tagname: 'div',
                                             attr: {
                                                 id: 'showtab0',
                                             },
                                             text: '开奖信息',
                                         }),
-                                        creatCompleteElement({
+                                        createCompleteElement({
                                             tagname: 'div',
                                             attr: {
                                                 id: 'showtab1',
@@ -1399,19 +1399,19 @@
                                         })
                                     ]
                                 }),
-                                creatCompleteElement({
+                                createCompleteElement({
                                     tagname: 'div',
                                     attr: {
                                         class: 'tabs',
                                     },
                                     children: [
-                                        creatCompleteElement({
+                                        createCompleteElement({
                                             tagname: 'div',
                                             attr: {
                                                 class: 'tab info',
                                             },
                                             children: [
-                                                creatCompleteElement({
+                                                createCompleteElement({
                                                     tagname: 'button',
                                                     attr: {
                                                         title: '查看是否中奖\n移除过期动态',
@@ -1422,13 +1422,13 @@
                                                 })
                                             ]
                                         }),
-                                        creatCompleteElement({
+                                        createCompleteElement({
                                             tagname: 'div',
                                             attr: {
                                                 class: 'tab config',
                                             },
                                             children: [
-                                                creatCompleteElement({
+                                                createCompleteElement({
                                                     tagname: 'button',
                                                     attr: {
                                                         id: 'save',
@@ -1436,25 +1436,25 @@
                                                     },
                                                     text: '保存设置',
                                                 }),
-                                                creatCompleteElement({
+                                                createCompleteElement({
                                                     tagname: 'form',
                                                     attr: {
                                                         id: 'config',
                                                     },
                                                     children: [
-                                                        creatCompleteElement({
+                                                        createCompleteElement({
                                                             tagname: 'p',
                                                             text: '当前版本'+Script.version+Script.author,
                                                         }),
-                                                        creatCompleteElement({
+                                                        createCompleteElement({
                                                             tagname: 'p',
                                                             text: '模式选择',
                                                         }),
-                                                        creatCompleteElement({
+                                                        createCompleteElement({
                                                             tagname: 'label',
                                                             text: '转发官方抽奖',
                                                             children: [
-                                                                creatCompleteElement({
+                                                                createCompleteElement({
                                                                     tagname: 'input',
                                                                     attr: {
                                                                         type: 'checkbox',
@@ -1466,11 +1466,11 @@
                                                                 })
                                                             ]
                                                         }),
-                                                        creatCompleteElement({
+                                                        createCompleteElement({
                                                             tagname: 'label',
                                                             text: '转发非官方抽奖',
                                                             children: [
-                                                                creatCompleteElement({
+                                                                createCompleteElement({
                                                                     tagname: 'input',
                                                                     attr: {
                                                                         type: 'checkbox',
@@ -1482,11 +1482,11 @@
                                                                 })
                                                             ]
                                                         }),
-                                                        creatCompleteElement({
+                                                        createCompleteElement({
                                                             tagname: 'p',
                                                             text: '开奖时间(默认-1:不限):',
                                                         }),
-                                                        creatCompleteElement({
+                                                        createCompleteElement({
                                                             tagname: 'input',
                                                             attr: {
                                                                 type: 'number',
@@ -1494,15 +1494,15 @@
                                                                 value: config.maxday
                                                             },
                                                         }),
-                                                        creatCompleteElement({
+                                                        createCompleteElement({
                                                             tagname: 'span',
                                                             text: '天内',
                                                         }),
-                                                        creatCompleteElement({
+                                                        createCompleteElement({
                                                             tagname: 'p',
                                                             text: '再次扫描间隔(完成所有转发后进行停止等待,于指定时间间隔后再次进行操作):',
                                                         }),
-                                                        creatCompleteElement({
+                                                        createCompleteElement({
                                                             tagname: 'input',
                                                             attr: {
                                                                 type: 'number',
@@ -1510,15 +1510,15 @@
                                                                 value: (Number(config.scan_time) / 60000).toString(),
                                                             }
                                                         }),
-                                                        creatCompleteElement({
+                                                        createCompleteElement({
                                                             tagname: 'span',
                                                             text: '分钟',
                                                         }),
-                                                        creatCompleteElement({
+                                                        createCompleteElement({
                                                             tagname: 'p',
                                                             text: '转发间隔(每条动态的转发间隔时间):',
                                                         }),
-                                                        creatCompleteElement({
+                                                        createCompleteElement({
                                                             tagname: 'input',
                                                             attr: {
                                                                 type: 'number',
@@ -1526,15 +1526,15 @@
                                                                 value: (Number(config.wait) / 1000).toString(),
                                                             }
                                                         }),
-                                                        creatCompleteElement({
+                                                        createCompleteElement({
                                                             tagname: 'span',
                                                             text: '秒',
                                                         }),
-                                                        creatCompleteElement({
+                                                        createCompleteElement({
                                                             tagname: 'p',
                                                             text: '此处存放黑名单(用户UID或动态的ID):',
                                                         }),
-                                                        creatCompleteElement({
+                                                        createCompleteElement({
                                                             tagname: 'textarea',
                                                             attr: {
                                                                 cols: '65',
@@ -1544,11 +1544,11 @@
                                                             },
                                                             text: config.blacklist,
                                                         }),
-                                                        creatCompleteElement({
+                                                        createCompleteElement({
                                                             tagname: 'p',
                                                             text: '转发动态评语(!注意!以下每一句英文逗号分割(句子内不要出现英文逗号)):',
                                                         }),
-                                                        creatCompleteElement({
+                                                        createCompleteElement({
                                                             tagname: 'textarea',
                                                             attr: {
                                                                 cols: '65',
@@ -1557,11 +1557,11 @@
                                                             },
                                                             text: config.relay.toString(),
                                                         }),
-                                                        creatCompleteElement({
+                                                        createCompleteElement({
                                                             tagname: 'p',
                                                             text: '随机评论内容:',
                                                         }),
-                                                        creatCompleteElement({
+                                                        createCompleteElement({
                                                             tagname: 'textarea',
                                                             attr: {
                                                                 cols: '65',
@@ -1570,19 +1570,19 @@
                                                             },
                                                             text: config.chat.toString(),
                                                         }),
-                                                        creatCompleteElement({
+                                                        createCompleteElement({
                                                             tagname: 'p',
                                                             text: '监视的UID:',
                                                         }),
-                                                        creatCompleteElement({
+                                                        createCompleteElement({
                                                             tagname: 'p',
                                                             text: Script.UIDs.toString(),
                                                         }),
-                                                        creatCompleteElement({
+                                                        createCompleteElement({
                                                             tagname: 'p',
                                                             text: '监视的话题:',
                                                         }),
-                                                        creatCompleteElement({
+                                                        createCompleteElement({
                                                             tagname: 'p',
                                                             text: Script.TAGs.toString(),
                                                         }),
@@ -1776,22 +1776,22 @@
         } info
          */
         creatLotteryDetailInfo(info) {
-            const creatCompleteElement = Base.creatCompleteElement
+            const createCompleteElement = Base.createCompleteElement
                 , infocards = document.querySelector('.tab.info')
-                , LotteryDetailInfo = creatCompleteElement({
+                , LotteryDetailInfo = createCompleteElement({
                     tagname: 'div',
                     attr: {
                         class: 'card',
                     },
                     children: [
-                        creatCompleteElement({
+                        createCompleteElement({
                             tagname: 'p',
                             attr: {
                                 style: 'color:#fb7299;'
                             },
                             text: info.origin_uname+':',
                         }),
-                        creatCompleteElement({
+                        createCompleteElement({
                             tagname: 'p',
                             attr: {
                                 title: info.origin_description,
@@ -1799,28 +1799,28 @@
                             },
                             text: info.origin_description
                         }),
-                        creatCompleteElement({
+                        createCompleteElement({
                             tagname: 'p',
                             attr: {
                                 style: 'color:red;'
                             },
                             text: info.text
                         }),
-                        creatCompleteElement({
+                        createCompleteElement({
                             tagname: 'p',
                             attr: {
                                 style: 'color:#ffa726;'
                             },
                             text: '奖品:'+info.item
                         }),
-                        creatCompleteElement({
+                        createCompleteElement({
                             tagname: 'span',
                             attr: {
                                 style: 'color:green;'
                             },
                             text: info.isMe+'   '
                         }),
-                        creatCompleteElement({
+                        createCompleteElement({
                             tagname: 'a',
                             attr: {
                                 href: 'https://t.bilibili.com/'+info.origin_dynamic_id,
@@ -1828,7 +1828,7 @@
                             },
                             text: '查看详情'
                         }),
-                        creatCompleteElement({
+                        createCompleteElement({
                             tagname: 'button',
                             attr: {
                                 id: 'btn1',
@@ -1837,7 +1837,7 @@
                             },
                             text: '删除动态并取关',
                         }),
-                        creatCompleteElement({
+                        createCompleteElement({
                             tagname: 'button',
                             attr: {
                                 id: 'btn2',

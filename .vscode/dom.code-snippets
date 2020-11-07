@@ -1,9 +1,9 @@
 {
-    "creatCompleteElement": {
+    "createCompleteElement": {
         "scope": "javascript,typescript",
         "prefix": "cEle",
         "body": [
-            "creatCompleteElement({",
+            "createCompleteElement({",
             "    tagname: '$1',",
             "    attr: {",
             "        class: '$2',",

@@ -13,7 +13,7 @@
 } StructInfo
  * @returns {DocumentFragment}
  */
-function creatCompleteElement(StructInfo) {
+function createCompleteElement(StructInfo) {
     const { tagname, attr, script, text, children } = StructInfo;
     if (typeof tagname !== 'string') throw new TypeError('at tagname');
     let frg = document.createDocumentFragment();
@@ -55,7 +55,7 @@ let ele1 = {
     },
     text: '第一层',
     children: [
-        creatCompleteElement({
+        createCompleteElement({
             tagname: 'li',
             attr: {
                 class: 'class',
@@ -63,7 +63,7 @@ let ele1 = {
             },
             text: 'li',
             children: [
-                creatCompleteElement({
+                createCompleteElement({
                     tagname: 'div',
                     attr: {
                         class: 'class',
@@ -71,7 +71,7 @@ let ele1 = {
                     },
                     text: '第二层',
                     children: [
-                        creatCompleteElement({
+                        createCompleteElement({
                             tagname: 'li',
                             attr: {
                                 class: 'class',
@@ -85,4 +85,4 @@ let ele1 = {
         })
     ]
 }
-document.body.appendChild(creatCompleteElement(ele0));
+document.body.appendChild(createCompleteElement(ele0));
