@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bili动态抽奖助手
 // @namespace    http://tampermonkey.net/
-// @version      3.5.5
+// @version      3.5.6
 // @description  自动参与B站"关注转发抽奖"活动
 // @author       shanmite
 // @include      /^https?:\/\/space\.bilibili\.com/[0-9]*/
@@ -13,7 +13,7 @@
 (async function () {
     "use strict"
     const Script = {
-        version: '|version: 3.5.5',
+        version: '|version: 3.5.6',
         author: '@shanmite',
         UIDs: [
             213931643,
