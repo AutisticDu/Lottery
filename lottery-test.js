@@ -240,7 +240,7 @@
      */
     let config = {
         model: '11',/* both */
-        maxday: '', /* 不限 */
+        maxday: '-1', /* 不限 */
         scan_time: '1800000', /* 30min */
         wait: '20000', /* 20s */
         blacklist: '',
@@ -646,16 +646,17 @@
                                 timestamp13 = timestamp10 * 1000,
                                 time = new Date(timestamp13);
                             const remain = (() => {
-                                const timestr = ((timestamp13 - Date.now()) / 86400000).toString(),
-                                    timearr = timestr.replace(/(\d+)\.(\d+)/, "$1,0.$2").split(',');
-                                return `${timearr[0]}天余${parseInt(timearr[1] * 24)}小时`
+                                const timestr = ((timestamp13 - Date.now()) / 86400000).toString()
+                                    , timearr = timestr.replace(/(\d+)\.(\d+)/, "$1,0.$2").split(',');
+                                const text = timearr[0][0] === '-' ? `开奖时间已过${timearr[0].substring(1)}天余${parseInt(timearr[1] * 24)}小时` : `还有${timearr[0]}天余${parseInt(timearr[1] * 24)}小时`;
+                                return text
                             })();
                             let isMeB = (new RegExp(GlobalVar.myUID)).test(responseText);
                             const isMe = isMeB ? '中奖了！！！' : '未中奖';
                             const iteminfo = res.data.first_prize_cmt||''+'  '+res.data.second_prize_cmt||''+'  '+res.data.third_prize_cmt||'';
                             resolve({
                                 ts: timestamp10,
-                                text: `开奖时间: ${time.toLocaleString()} 还有${remain}`,
+                                text: `开奖时间: ${time.toLocaleString()} ${remain}`,
                                 item: iteminfo,
                                 isMe: isMe
                             });
@@ -1239,7 +1240,7 @@
             if(protoLotteryInfo === null) return [];
             let alllotteryinfo = [];
             const {model,_maxday,blacklist} = config;
-            const maxday = _maxday === '' ? Infinity : (Number(_maxday) * 86400);
+            const maxday = _maxday === '-1' ? Infinity : (Number(_maxday) * 86400);
             for (const info of protoLotteryInfo) {
                 const {uid,dyid,befilter,rid,des,type,hasOfficialLottery} = info;
                 let onelotteryinfo = {};
@@ -1315,7 +1316,7 @@
         }
         initUI() {
             const creatCompleteElement = Base.creatCompleteElement
-                , cssContent = ".shanmitemenu {position:fixed;z-index:99999;right:30px;top:68%;}.shanmitemenu .icon {background-position:0em -8.375em;width:0.425em;height:0.4em;vertical-align:middle;display:inline-block;background-image:url(https://s1.hdslb.com/bfs/seed/bplus-common/icon/2.2.1/bp-svg-icon.svg);background-repeat:no-repeat;background-size:1em 23.225em;font-size:40px;font-style:italic;}.shanmitemenu .show {position:relative;overflow:hidden;padding-left:0px;transition:0.3s all 0.1s cubic-bezier(0, 0.53, 0.15, 0.99);cursor:pointer;color:#178bcf;}.shanmitemenu .show:hover {padding-left:75px;}.shanmitemenu .box {position:absolute;right:20px;bottom:20px;background-color:#fff;padding:5px;border-radius:5px;box-shadow:grey 0px 0px 10px 0px;width:550px;height:350px;}.shanmitemenu button {font-size:14px;padding:0 5px;}.shanmitemenu .changetab {display:flex;-webkit-user-select:none;}.shanmitemenu .changetab div {margin:0 0 0 10px;padding:3px;border-radius:6px;border:2px solid #26c6da;font-size:14px;cursor:pointer;transition:background-color .3s ease 0s;background-color:#87cfeb80;}.shanmitemenu .changetab div:hover {background-color:skyblue;}.shanmitemenu .tab {display:none;overflow:hidden;overflow-y:scroll;height:310px;margin:3px;}.shanmitemenu .tab .card {font-size:15px;margin:5px;padding:2px;border-radius:5px;box-shadow:gray 0px 0px 4px 0px;}.shanmitemenu .bottom {display:flex;justify-content:flex-end;align-items:flex-end;}.shanmitemenu .bottom button{margin-left:10px;}"
+                , cssContent = ".shanmitemenu {position:fixed;z-index:99999;right:30px;top:68%;}.shanmitemenu .icon {background-position:0em -8.375em;width:0.425em;height:0.4em;vertical-align:middle;display:inline-block;background-image:url(https://s1.hdslb.com/bfs/seed/bplus-common/icon/2.2.1/bp-svg-icon.svg);background-repeat:no-repeat;background-size:1em 23.225em;font-size:40px;font-style:italic;}.shanmitemenu .show {position:relative;overflow:hidden;padding-left:0px;transition:0.3s all 0.1s cubic-bezier(0, 0.53, 0.15, 0.99);cursor:pointer;color:#178bcf;}.shanmitemenu .show:hover {padding-left:75px;}.shanmitemenu .box {position:absolute;right:20px;bottom:20px;background-color:#E5F4FB;padding:5px;border-radius:5px;box-shadow:grey 0px 0px 10px 0px;width:550px;height:350px;}.shanmitemenu button {font-size:14px;padding:0 5px;}.shanmitemenu .changetab {display:flex;-webkit-user-select:none;}.shanmitemenu .changetab div {margin:0 0 0 10px;padding:3px;border-radius:6px;border:2px solid #26c6da;font-size:14px;cursor:pointer;transition:background-color .3s ease 0s;background-color:#87cfeb80;}.shanmitemenu .changetab div:hover {background-color:skyblue;}.shanmitemenu .tab {display:none;overflow:hidden;overflow-y:scroll;height:310px;margin:3px;}.shanmitemenu .tab .card {font-size:15px;margin:5px;padding:2px;border-radius:5px;background-color:#ffffff ;box-shadow:gray 0px 0px 4px 0px;}.shanmitemenu .bottom {display:flex;justify-content:flex-end;align-items:flex-end;}.shanmitemenu .bottom button{margin-left:10px;}"
                 , frg = creatCompleteElement({
                     tagname: 'div',
                     attr: {
@@ -1469,13 +1470,14 @@
                                                         }),
                                                         creatCompleteElement({
                                                             tagname: 'p',
-                                                            text: '开奖时间(默认不限):',
+                                                            text: '开奖时间(默认-1:不限):',
                                                         }),
                                                         creatCompleteElement({
                                                             tagname: 'input',
                                                             attr: {
                                                                 type: 'number',
-                                                                name: 'maxday'
+                                                                name: 'maxday',
+                                                                value: config.maxday
                                                             },
                                                         }),
                                                         creatCompleteElement({
@@ -1652,7 +1654,7 @@
                         for (let i = 1; i < 2; i++) {
                             configForm.mode[i].checked ? newConfig.model += '1' : newConfig.model += '0';
                         }
-                        newConfig.maxday = configForm['maxday'].value === '' ? '' : configForm['maxday'].value;
+                        newConfig.maxday = Number(configForm['maxday'].value) < 0 ? '-1' : configForm['maxday'].value;
                         newConfig.scan_time = (Number(configForm.scan_time.value) * 60000).toString();
                         newConfig.wait = (Number(configForm.wait.value) * 1000).toString();
                         newConfig.blacklist = configForm.blacklist.value;

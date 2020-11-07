@@ -33,7 +33,7 @@
     position: absolute;
     right: 20px;
     bottom: 20px;
-    background-color: #fff;
+    background-color: #E5F4FB;
     padding: 5px;
     border-radius: 5px;
     box-shadow: grey 0px 0px 10px 0px;
@@ -73,6 +73,7 @@
     margin: 5px;
     padding: 2px;
     border-radius: 5px;
+    background-color: #ffffff ;
     box-shadow: gray 0px 0px 4px 0px;
 }
 .shanmitemenu .bottom {
