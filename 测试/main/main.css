@@ -20,6 +20,7 @@
     position: relative;
     overflow: hidden;
     padding-left: 0px;
+    line-height: 30px;
     transition: 0.3s all 0.1s cubic-bezier(0, 0.53, 0.15, 0.99);
     cursor: pointer;
     color: #178bcf;
@@ -32,7 +33,7 @@
 .shanmitemenu .box {
     position: absolute;
     right: 20px;
-    bottom: 20px;
+    bottom: 30px;
     background-color: #E5F4FB;
     padding: 5px;
     border-radius: 5px;

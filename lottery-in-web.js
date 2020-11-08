@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bili动态抽奖助手
 // @namespace    http://tampermonkey.net/
-// @version      3.5.7
+// @version      3.6.0
 // @description  自动参与B站"关注转发抽奖"活动
 // @author       shanmite
 // @include      /^https?:\/\/space\.bilibili\.com/[0-9]*/
@@ -13,7 +13,7 @@
 (async function () {
     "use strict"
     const Script = {
-        version: '|version: 3.5.6',
+        version: '|version: 3.6.0',
         author: '@shanmite',
         UIDs: [
             213931643,
@@ -862,7 +862,7 @@
          * 17(无图)  
          * @returns {void}
          */
-        sendChat: (rid,msg,type) => {
+        sendChat: (rid,msg,type,show=true) => {
             Ajax.post({
                 url: 'https://api.bilibili.com/x/v2/reply/add',
                 hasCookies: true,
@@ -876,9 +876,9 @@
                 },
                 success: responseText => {
                     if (/^{"code":0/.test(responseText)) {
-                        Tooltip.log('[自动评论]评论成功');
+                        show ? Tooltip.log('[自动评论]评论成功') : void 0;
                     } else {
-                        Tooltip.warn('[自动评论]评论失败')
+                        show ? Tooltip.log('[自动评论]评论失败') : void 0;
                     }
                 }
             })
@@ -1183,9 +1183,9 @@
          */
         async init() {
             if (config.model === '00') {Tooltip.log('已关闭所有转发行为');return}
+            if (GlobalVar.Lottery.length === 0) {Tooltip.log('抽奖信息为空');return}
             this.tagid = await API.checkMyPartition(); /* 检查关注分区 */
             this.attentionList = await API.getAttentionList(GlobalVar.myUID);
-            this.AllMyLotteryInfo = await GlobalVar.getAllMyLotteryInfo()
             const isAdd = await this.startLottery();
             if (isAdd) {
                 let cADynamic = await this.checkAllDynamic(GlobalVar.myUID, 2); /* 检查我的所有动态 */
@@ -1259,12 +1259,14 @@
                 const {uid,dyid,befilter,rid,des,type,hasOfficialLottery} = info;
                 let onelotteryinfo = {};
                 let isLottery = false;
+                let ts = 0;
                 const description = typeof des === 'string' ? des : '';
-                if(hasOfficialLottery && model[0] == '1') {
+                if(hasOfficialLottery && model[0] === '1') {
                     const oneLNotice = await API.getLotteryNotice(dyid);
-                    isLottery = oneLNotice.ts > (Date.now() / 1000) && oneLNotice.ts < maxday;
-                    isLottery ? await GlobalVar.addLotteryInfo('',dyid,oneLNotice.ts) : void 0;
-                } else if(model[1] == '1') {
+                    ts = oneLNotice.ts;
+                    isLottery = ts > (Date.now() / 1000) && ts < maxday;
+                }
+                if(!hasOfficialLottery&& model[1] === '1') {
                     isLottery = /[关转]/.test(description) && !befilter;
                 }
                 if(isLottery) {
@@ -1274,11 +1276,12 @@
                     /* 判断是否关注过 */
                     reg1.test(self.attentionList) ? void 0 : onelotteryinfo.uid = uid;
                     /* 判断是否转发过 */
-                    reg2.test(self.AllMyLotteryInfo) ? void 0 : onelotteryinfo.dyid = dyid;
+                    reg2.test(await GlobalVar.getAllMyLotteryInfo()) ? void 0 : onelotteryinfo.dyid = dyid;
                     /* 用于评论 */
                     onelotteryinfo.type = (type === 2) ? 11 : (type === 4) ? 17 : 0;
                     onelotteryinfo.rid = rid;
                     if (typeof onelotteryinfo.uid === 'undefined' && typeof onelotteryinfo.dyid === 'undefined') continue;
+                    await GlobalVar.addLotteryInfo('',dyid,ts);
                     alllotteryinfo.push(onelotteryinfo);
                 }
             }
@@ -1307,7 +1310,7 @@
                         Tooltip.warn('未关注无法移动分区');
                     })
                 }
-                if (typeof rid === 'string'&&config.model[0] === '1') {
+                if (typeof rid === 'string'&&config.model[1] === '1') {
                     API.sendChat(rid, Base.getRandomStr(config.chat), type);
                 }
                 await Base.delay(Number(config.wait));
@@ -1326,11 +1329,10 @@
         init() {
             this.initUI();
             this.eventListener();
-            this.sortInfoAndShow()
         }
         initUI() {
             const createCompleteElement = Base.createCompleteElement
-                , cssContent = ".shanmitemenu {position:fixed;z-index:99999;right:30px;top:68%;}.shanmitemenu .icon {background-position:0em -8.375em;width:0.425em;height:0.4em;vertical-align:middle;display:inline-block;background-image:url(https://s1.hdslb.com/bfs/seed/bplus-common/icon/2.2.1/bp-svg-icon.svg);background-repeat:no-repeat;background-size:1em 23.225em;font-size:40px;font-style:italic;}.shanmitemenu .show {position:relative;overflow:hidden;padding-left:0px;transition:0.3s all 0.1s cubic-bezier(0, 0.53, 0.15, 0.99);cursor:pointer;color:#178bcf;}.shanmitemenu .show:hover {padding-left:75px;}.shanmitemenu .box {position:absolute;right:20px;bottom:20px;background-color:#E5F4FB;padding:5px;border-radius:5px;box-shadow:grey 0px 0px 10px 0px;width:550px;height:350px;}.shanmitemenu button {font-size:14px;padding:0 5px;}.shanmitemenu .changetab {display:flex;-webkit-user-select:none;}.shanmitemenu .changetab div {margin:0 0 0 10px;padding:3px;border-radius:6px;border:2px solid #26c6da;font-size:14px;cursor:pointer;transition:background-color .3s ease 0s;background-color:#87cfeb80;}.shanmitemenu .changetab div:hover {background-color:skyblue;}.shanmitemenu .tab {display:none;overflow:hidden;overflow-y:scroll;height:310px;margin:3px;}.shanmitemenu .tab .card {font-size:15px;margin:5px;padding:2px;border-radius:5px;background-color:#ffffff ;box-shadow:gray 0px 0px 4px 0px;}.shanmitemenu .bottom {display:flex;justify-content:flex-end;align-items:flex-end;}.shanmitemenu .bottom button{margin-left:10px;}"
+                , cssContent = ".shanmitemenu {position:fixed;z-index:99999;right:30px;top:68%;}.shanmitemenu .icon {background-position:0em -8.375em;width:0.425em;height:0.4em;vertical-align:middle;display:inline-block;background-image:url(https://s1.hdslb.com/bfs/seed/bplus-common/icon/2.2.1/bp-svg-icon.svg);background-repeat:no-repeat;background-size:1em 23.225em;font-size:40px;font-style:italic;}.shanmitemenu .show {position:relative;overflow:hidden;padding-left:0px;line-height:30px;transition:0.3s all 0.1s cubic-bezier(0, 0.53, 0.15, 0.99);cursor:pointer;color:#178bcf;}.shanmitemenu .show:hover {padding-left:75px;}.shanmitemenu .box {position:absolute;right:20px;bottom:30px;background-color:#E5F4FB;padding:5px;border-radius:5px;box-shadow:grey 0px 0px 10px 0px;width:550px;height:350px;}.shanmitemenu button {font-size:14px;padding:0 5px;}.shanmitemenu .changetab {display:flex;-webkit-user-select:none;}.shanmitemenu .changetab div {margin:0 0 0 10px;padding:3px;border-radius:6px;border:2px solid #26c6da;font-size:14px;cursor:pointer;transition:background-color .3s ease 0s;background-color:#87cfeb80;}.shanmitemenu .changetab div:hover {background-color:skyblue;}.shanmitemenu .tab {display:none;overflow:hidden;overflow-y:scroll;height:310px;margin:3px;}.shanmitemenu .tab .card {font-size:15px;margin:5px;padding:2px;border-radius:5px;background-color:#ffffff ;box-shadow:gray 0px 0px 4px 0px;}.shanmitemenu .bottom {display:flex;justify-content:flex-end;align-items:flex-end;}.shanmitemenu .bottom button{margin-left:10px;}"
                 , frg = createCompleteElement({
                     tagname: 'div',
                     attr: {
@@ -1419,7 +1421,16 @@
                                                         style: 'position: absolute;right: 30px;bottom: 20px;'
                                                     },
                                                     text: '自检',
-                                                })
+                                                }),
+                                                createCompleteElement({
+                                                    tagname: 'button',
+                                                    attr: {
+                                                        title: '启动脚本',
+                                                        id: 'lottery',
+                                                        style: 'position: absolute;right: 30px;bottom: 50px;'
+                                                    },
+                                                    text: '启动脚本',
+                                                }),
                                             ]
                                         }),
                                         createCompleteElement({
@@ -1445,6 +1456,14 @@
                                                         createCompleteElement({
                                                             tagname: 'p',
                                                             text: '当前版本'+Script.version+Script.author,
+                                                        }),
+                                                        createCompleteElement({
+                                                            tagname: 'a',
+                                                            attr: {
+                                                                href: "https://greasyfork.org/zh-CN/scripts/415724",
+                                                                target: '_blank'
+                                                            },
+                                                            text: '屏蔽自己的抽奖动态',
                                                         }),
                                                         createCompleteElement({
                                                             tagname: 'p',
@@ -1625,13 +1644,19 @@
                         break;
                     case 'showtab0': {
                         show(0);
-                        infotab.innerHTML = '';
+                        const childcard = infotab.querySelectorAll('.card');
+                        childcard.forEach(card=>{
+                            childcard.removeChild(card);
+                        })
                         this.sortInfoAndShow();
                     }
                         break;
                     case 'showtab1': {
                         show(1);
                     }
+                        break;
+                    case 'lottery': 
+                        eventBus.emit('Turn_on_the_Monitor');
                         break;
                     case 'checkme': {
                         alert('仅能查看官方抽奖');
@@ -1898,9 +1923,8 @@
                 Tooltip.log('设置修改成功');
             })
         }
-        API.sendChat('453380690548954982', (new Date(Date.now())).toLocaleString() + Script.version, 17);
-        await GlobalVar.getAllMyLotteryInfo();
-        GlobalVar.Lottery.length === 0 ? void 0 : eventBus.emit('Turn_on_the_Monitor');
+        API.sendChat('453380690548954982', (new Date(Date.now())).toLocaleString() + Script.version, 17, false);
+        await GlobalVar.getAllMyLotteryInfo();/* 设置初始化 */
         (new MainMenu()).init();
     })()
 })();
