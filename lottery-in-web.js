@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bili动态抽奖助手
 // @namespace    http://tampermonkey.net/
-// @version      3.6.0
+// @version      3.6.1
 // @description  自动参与B站"关注转发抽奖"活动
 // @author       shanmite
 // @include      /^https?:\/\/space\.bilibili\.com/[0-9]*/
@@ -13,7 +13,7 @@
 (async function () {
     "use strict"
     const Script = {
-        version: '|version: 3.6.0',
+        version: '|version: 3.6.1',
         author: '@shanmite',
         UIDs: [
             213931643,
@@ -254,6 +254,7 @@
      */
     let config = {
         model: '11',/* both */
+        chatmodel: '11',/* both */
         maxday: '-1', /* 不限 */
         scan_time: '1800000', /* 30min */
         wait: '20000', /* 20s */
@@ -1253,21 +1254,24 @@
                 protoLotteryInfo = typeof self.UID === 'number' ? await self.getLotteryInfoByUID() : await self.getLotteryInfoByTag();
             if(protoLotteryInfo === null) return [];
             let alllotteryinfo = [];
-            const {model,maxday:_maxday,blacklist} = config;
+            const {model,chatmodel,maxday:_maxday,blacklist} = config;
             const maxday = _maxday === '-1'||_maxday === '' ? Infinity : (Number(_maxday) * 86400);
             for (const info of protoLotteryInfo) {
                 const {uid,dyid,befilter,rid,des,type,hasOfficialLottery} = info;
                 let onelotteryinfo = {};
                 let isLottery = false;
+                let isSendChat = false;
                 let ts = 0;
                 const description = typeof des === 'string' ? des : '';
                 if(hasOfficialLottery && model[0] === '1') {
                     const oneLNotice = await API.getLotteryNotice(dyid);
                     ts = oneLNotice.ts;
                     isLottery = ts > (Date.now() / 1000) && ts < maxday;
+                    isSendChat = chatmodel[0] === '1';
                 }
                 if(!hasOfficialLottery&& model[1] === '1') {
                     isLottery = /[关转]/.test(description) && !befilter;
+                    isSendChat = chatmodel[1] === '1';
                 }
                 if(isLottery) {
                     const reg1 = new RegExp(uid);
@@ -1277,9 +1281,10 @@
                     reg1.test(self.attentionList) ? void 0 : onelotteryinfo.uid = uid;
                     /* 判断是否转发过 */
                     reg2.test(await GlobalVar.getAllMyLotteryInfo()) ? void 0 : onelotteryinfo.dyid = dyid;
-                    /* 用于评论 */
+                    /* 根据动态的类型决定评论的类型 */
                     onelotteryinfo.type = (type === 2) ? 11 : (type === 4) ? 17 : 0;
-                    onelotteryinfo.rid = rid;
+                    /* 是否评论 */
+                    isSendChat ? onelotteryinfo.rid = rid : void 0;
                     if (typeof onelotteryinfo.uid === 'undefined' && typeof onelotteryinfo.dyid === 'undefined') continue;
                     await GlobalVar.addLotteryInfo('',dyid,ts);
                     alllotteryinfo.push(onelotteryinfo);
@@ -1310,7 +1315,7 @@
                         Tooltip.warn('未关注无法移动分区');
                     })
                 }
-                if (typeof rid === 'string'&&config.model[1] === '1') {
+                if (typeof rid === 'string'&& type !== 0) {
                     API.sendChat(rid, Base.getRandomStr(config.chat), type);
                 }
                 await Base.delay(Number(config.wait));
@@ -1502,6 +1507,42 @@
                                                             ]
                                                         }),
                                                         createCompleteElement({
+                                                            tagname: 'br',
+                                                        }),
+                                                        createCompleteElement({
+                                                            tagname: 'label',
+                                                            text: '官方抽奖自动评论',
+                                                            children: [
+                                                                createCompleteElement({
+                                                                    tagname: 'input',
+                                                                    attr: {
+                                                                        type: 'checkbox',
+                                                                        name: 'chatmode'
+                                                                    },
+                                                                    script: el => {
+                                                                        config.chatmodel[0] === '1' ? el.checked = 'checked' : void 0;
+                                                                    }
+                                                                })
+                                                            ]
+                                                        }),
+                                                        createCompleteElement({
+                                                            tagname: 'label',
+                                                            text: '非官方抽奖自动评论',
+                                                            children: [
+                                                                createCompleteElement({
+                                                                    tagname: 'input',
+                                                                    attr: {
+                                                                        type: 'checkbox',
+                                                                        name: 'chatmode'
+                                                                    },
+                                                                    script: el => {
+                                                                        config.chatmodel[1] === '1' ? el.checked = 'checked' : void 0;
+                                                                    }
+                                                                })
+                                                            ]
+                                                        }),
+                                                        
+                                                        createCompleteElement({
                                                             tagname: 'p',
                                                             text: '开奖时间(默认-1:不限):',
                                                         }),
@@ -1646,7 +1687,7 @@
                         show(0);
                         const childcard = infotab.querySelectorAll('.card');
                         childcard.forEach(card=>{
-                            childcard.removeChild(card);
+                            infotab.removeChild(card);
                         })
                         this.sortInfoAndShow();
                     }
@@ -1682,6 +1723,7 @@
                     case 'save': {
                         let newConfig = {
                                 model: '',
+                                chatmodel: '',
                                 maxday: '',
                                 scan_time: '',
                                 wait: '',
@@ -1689,9 +1731,9 @@
                                 relay: [],
                                 chat: [],
                                 }
-                        configForm.mode[0].checked ? newConfig.model = '1' : newConfig.model = '0';
-                        for (let i = 1; i < 2; i++) {
+                        for (let i = 0; i < 2; i++) {
                             configForm.mode[i].checked ? newConfig.model += '1' : newConfig.model += '0';
+                            configForm.chatmode[i].checked ? newConfig.chatmodel += '1' : newConfig.chatmodel += '0';
                         }
                         newConfig.maxday = Number(configForm['maxday'].value) < 0 ? '-1' : configForm['maxday'].value;
                         newConfig.scan_time = (Number(configForm.scan_time.value) * 60000).toString();
