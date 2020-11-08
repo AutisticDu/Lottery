@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bili动态抽奖助手
 // @namespace    http://tampermonkey.net/
-// @version      3.6.1
+// @version      3.6.2
 // @description  自动参与B站"关注转发抽奖"活动
 // @author       shanmite
 // @include      /^https?:\/\/space\.bilibili\.com/[0-9]*/
@@ -13,7 +13,7 @@
 (async function () {
     "use strict"
     const Script = {
-        version: '|version: 3.6.1',
+        version: '|version: 3.6.2',
         author: '@shanmite',
         UIDs: [
             213931643,
@@ -273,7 +273,12 @@
         await Base.storage.set('config', JSON.stringify(config));
         Tooltip.log('设置修改成功');
     } else {
-        config = JSON.parse(configstr);
+        let isComplete = true;
+        const _config = JSON.parse(configstr);
+        Object.keys(config).forEach(key=>{
+            typeof _config[key] === 'undefined' ? isComplete = false : void 0;
+        })
+        config = isComplete ? _config : config;
     }
     /**
      * 事件总线
