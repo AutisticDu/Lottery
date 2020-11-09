@@ -22,7 +22,7 @@
 【自动】隔一个小时刷新页面  
 【自动】展示开奖信息  
 ![效果图1](https://ftp.bmp.ovh/imgs/2020/11/d32f65bc44c3c2fd.png)
-![效果图2](https://ftp.bmp.ovh/imgs/2020/11/655bd9be18c2e070.png)
+![效果图2](https://ftp.bmp.ovh/imgs/2020/11/82026556daf21c82.png)
 ## 完善
 如有问题请提交到[反馈](https://greasyfork.org/zh-CN/scripts/412468-bili%E5%8A%A8%E6%80%81%E6%8A%BD%E5%A5%96%E5%8A%A9%E6%89%8B/feedback)通知作者进行脚本更新,参与脚本的完善
 ## 声明

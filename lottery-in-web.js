@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bili动态抽奖助手
 // @namespace    http://tampermonkey.net/
-// @version      3.6.2
+// @version      3.6.3
 // @description  自动参与B站"关注转发抽奖"活动
 // @author       shanmite
 // @include      /^https?:\/\/space\.bilibili\.com/[0-9]*/
@@ -10,10 +10,10 @@
 // @grant        GM.getValue
 // @grant        GM.deleteValue
 // ==/UserScript==
-(async function () {
+(function () {
     "use strict"
     const Script = {
-        version: '|version: 3.6.2',
+        version: '|version: 3.6.3',
         author: '@shanmite',
         UIDs: [
             213931643,
@@ -33,6 +33,26 @@
             '转发抽奖',
             '动态抽奖',
         ]
+    }
+    /**
+     * 默认设置
+     */
+    let config = {
+        model: '11',/* both */
+        chatmodel: '11',/* both */
+        maxday: '-1', /* 不限 */
+        scan_time: '1800000', /* 30min */
+        wait: '20000', /* 20s */
+        minfollower: '500',/* 最少500人关注 */
+        blacklist: '',
+        relay: ['转发动态'],
+        chat: [
+            '[OK]', '[星星眼]', '[歪嘴]', '[喜欢]', '[偷笑]', '[笑]', '[喜极而泣]', '[辣眼睛]', '[吃瓜]', '[奋斗]',
+            '永不缺席 永不中奖 永不放弃！', '万一呢', '在', '冲吖~', '来了', '万一', '[保佑][保佑]', '从未中，从未停', '[吃瓜]', '[抠鼻][抠鼻]',
+            '来力', '秋梨膏', '[呲牙]', '从不缺席', '分子', '可以', '恰', '不会吧', '1', '好',
+            'rush', '来来来', 'ok', '冲', '凑热闹', '我要我要[打call]', '我还能中！让我中！！！', '大家都散了吧，已经抽完了，是我的', '我是天选之子', '给我中一次吧！',
+            '坚持不懈，迎难而上，开拓创新！', '[OK][OK]', '我来抽个奖', '中中中中中中', '[doge][doge][doge]', '我我我',
+        ],
     }
     /**
      * 基础工具
@@ -249,37 +269,6 @@
         }
         return module;
     })()
-    /**
-     * 默认设置
-     */
-    let config = {
-        model: '11',/* both */
-        chatmodel: '11',/* both */
-        maxday: '-1', /* 不限 */
-        scan_time: '1800000', /* 30min */
-        wait: '20000', /* 20s */
-        blacklist: '',
-        relay: ['转发动态'],
-        chat: [
-            '[OK]', '[星星眼]', '[歪嘴]', '[喜欢]', '[偷笑]', '[笑]', '[喜极而泣]', '[辣眼睛]', '[吃瓜]', '[奋斗]',
-            '永不缺席 永不中奖 永不放弃！', '万一呢', '在', '冲吖~', '来了', '万一', '[保佑][保佑]', '从未中，从未停', '[吃瓜]', '[抠鼻][抠鼻]',
-            '来力', '秋梨膏', '[呲牙]', '从不缺席', '分子', '可以', '恰', '不会吧', '1', '好',
-            'rush', '来来来', 'ok', '冲', '凑热闹', '我要我要[打call]', '我还能中！让我中！！！', '大家都散了吧，已经抽完了，是我的', '我是天选之子', '给我中一次吧！',
-            '坚持不懈，迎难而上，开拓创新！', '[OK][OK]', '我来抽个奖', '中中中中中中', '[doge][doge][doge]', '我我我',
-        ],
-    }
-    let configstr = await Base.storage.get('config');
-    if (typeof configstr === 'undefined') {
-        await Base.storage.set('config', JSON.stringify(config));
-        Tooltip.log('设置修改成功');
-    } else {
-        let isComplete = true;
-        const _config = JSON.parse(configstr);
-        Object.keys(config).forEach(key=>{
-            typeof _config[key] === 'undefined' ? isComplete = false : void 0;
-        })
-        config = isComplete ? _config : config;
-    }
     /**
      * 事件总线
      */
@@ -499,7 +488,7 @@
     /**
      * 网络请求
      */
-    const API = {
+    const BiliAPI = {
         /**
          * 获取关注列表
          * @param {number} uid 
@@ -620,19 +609,27 @@
             });
         },
         /**
-         * 获取动态的细节
-         * @param {string} dyid 
+         * 获取关注数
+         * @param {number} uid
+         * @returns {Promise<number | 0>}
          */
-        getDynamicDetail: dyid => {
+        getUserInfo: uid=>{
             return new Promise((resolve) => {
                 Ajax.get({
-                    url: 'https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/get_dynamic_detail',
+                    url: 'https://api.bilibili.com/x/web-interface/card',
                     queryStringsObj: {
-                        dynamic_id: dyid
+                        mid: uid,
+                        photo: false
                     },
                     hasCookies: true,
                     success: responseText => {
-                        resolve(responseText)
+                        const res = Base.strToJson(responseText);
+                        if (res.code === 0) {
+                            resolve(res.data.follower)
+                        } else {
+                            Tooltip.warn('获取关注数出错,可能是访问过频繁');
+                            resolve(0)
+                        }
                     }
                 })
             });
@@ -964,7 +961,7 @@
         async checkAllDynamic (hostuid, pages) {
             Tooltip.log(`准备读取${pages}页自己的动态信息`);
             const mDR = this.modifyDynamicRes,
-                getOneDynamicInfoByUID = API.getOneDynamicInfoByUID,
+                getOneDynamicInfoByUID = BiliAPI.getOneDynamicInfoByUID,
                 curriedGetOneDynamicInfoByUID = Base.curryify(getOneDynamicInfoByUID); /* 柯里化的请求函数 */
             /**
              * 储存了特定UID的请求函数
@@ -1106,13 +1103,13 @@
         async getLotteryInfoByTag() {
             const self = this,
                 tag_name = self.tag_name,
-                tag_id = await API.getTagIDByTagName(tag_name),
-                hotdy = await API.getHotDynamicInfoByTagID(tag_id),
+                tag_id = await BiliAPI.getTagIDByTagName(tag_name),
+                hotdy = await BiliAPI.getHotDynamicInfoByTagID(tag_id),
                 modDR = self.modifyDynamicRes(hotdy);
             if(modDR === null) return null;
             Tooltip.log(`开始获取带话题#${tag_name}#的动态信息`);
             let mDRdata = modDR.modifyDynamicResArray;
-            const newdy = await API.getOneDynamicInfoByTag(tag_name,modDR.nextinfo.next_offset);
+            const newdy = await BiliAPI.getOneDynamicInfoByTag(tag_name,modDR.nextinfo.next_offset);
             mDRdata.push.apply(mDRdata, self.modifyDynamicRes(newdy).modifyDynamicResArray);
             const fomatdata = mDRdata.map(o=>{
                 const hasOrigin = o.type === 1
@@ -1146,7 +1143,7 @@
          */
         async getLotteryInfoByUID() {
             const self = this,
-                dy = await API.getOneDynamicInfoByUID(self.UID, 0),
+                dy = await BiliAPI.getOneDynamicInfoByUID(self.UID, 0),
                 modDR = self.modifyDynamicRes(dy);
             if(modDR === null) return null;
             const mDRdata = modDR.modifyDynamicResArray,
@@ -1190,8 +1187,8 @@
         async init() {
             if (config.model === '00') {Tooltip.log('已关闭所有转发行为');return}
             if (GlobalVar.Lottery.length === 0) {Tooltip.log('抽奖信息为空');return}
-            this.tagid = await API.checkMyPartition(); /* 检查关注分区 */
-            this.attentionList = await API.getAttentionList(GlobalVar.myUID);
+            this.tagid = await BiliAPI.checkMyPartition(); /* 检查关注分区 */
+            this.attentionList = await BiliAPI.getAttentionList(GlobalVar.myUID);
             const isAdd = await this.startLottery();
             if (isAdd) {
                 let cADynamic = await this.checkAllDynamic(GlobalVar.myUID, 2); /* 检查我的所有动态 */
@@ -1240,7 +1237,7 @@
             if (keyArr.length > 800) {
                 for (let i = 0; i < keyArr.length - 1500; i++) {
                     let dyid = AllMyLotteryInfo[keyArr[i]][0];
-                    API.rmDynamic(dyid);
+                    BiliAPI.rmDynamic(dyid);
                 }
             }
         }
@@ -1259,7 +1256,7 @@
                 protoLotteryInfo = typeof self.UID === 'number' ? await self.getLotteryInfoByUID() : await self.getLotteryInfoByTag();
             if(protoLotteryInfo === null) return [];
             let alllotteryinfo = [];
-            const {model,chatmodel,maxday:_maxday,blacklist} = config;
+            const {model,chatmodel,maxday:_maxday,minfollower,blacklist} = config;
             const maxday = _maxday === '-1'||_maxday === '' ? Infinity : (Number(_maxday) * 86400);
             for (const info of protoLotteryInfo) {
                 const {uid,dyid,befilter,rid,des,type,hasOfficialLottery} = info;
@@ -1269,12 +1266,13 @@
                 let ts = 0;
                 const description = typeof des === 'string' ? des : '';
                 if(hasOfficialLottery && model[0] === '1') {
-                    const oneLNotice = await API.getLotteryNotice(dyid);
+                    const oneLNotice = await BiliAPI.getLotteryNotice(dyid);
                     ts = oneLNotice.ts;
                     isLottery = ts > (Date.now() / 1000) && ts < maxday;
                     isSendChat = chatmodel[0] === '1';
-                }
-                if(!hasOfficialLottery&& model[1] === '1') {
+                }else if(!hasOfficialLottery&& model[1] === '1') {
+                    const followerNum = await BiliAPI.getUserInfo(uid);
+                    if (followerNum < Number(minfollower)) continue;
                     isLottery = /[关转]/.test(description) && !befilter;
                     isSendChat = chatmodel[1] === '1';
                 }
@@ -1311,17 +1309,17 @@
         async go(obj) {
             const { uid, dyid, type, rid } = obj;
             if (typeof dyid === 'string') {
-                API.autoRelay(GlobalVar.myUID, dyid);
-                API.autolike(dyid);
+                BiliAPI.autoRelay(GlobalVar.myUID, dyid);
+                BiliAPI.autolike(dyid);
                 if (typeof uid === 'number') {
-                    API.autoAttention(uid).then(()=>{
-                        API.movePartition(uid,this.tagid)
+                    BiliAPI.autoAttention(uid).then(()=>{
+                        BiliAPI.movePartition(uid,this.tagid)
                     },()=>{
                         Tooltip.warn('未关注无法移动分区');
                     })
                 }
                 if (typeof rid === 'string'&& type !== 0) {
-                    API.sendChat(rid, Base.getRandomStr(config.chat), type);
+                    BiliAPI.sendChat(rid, Base.getRandomStr(config.chat), type);
                 }
                 await Base.delay(Number(config.wait));
                 return;
@@ -1487,7 +1485,7 @@
                                                                     tagname: 'input',
                                                                     attr: {
                                                                         type: 'checkbox',
-                                                                        name: 'mode'
+                                                                        name: 'model'
                                                                     },
                                                                     script: el=>{
                                                                         config.model[0] === '1' ? el.checked = 'checked' : void 0;
@@ -1503,7 +1501,7 @@
                                                                     tagname: 'input',
                                                                     attr: {
                                                                         type: 'checkbox',
-                                                                        name: 'mode'
+                                                                        name: 'model'
                                                                     },
                                                                     script: el=>{
                                                                         config.model[1] === '1' ? el.checked = 'checked' : void 0;
@@ -1522,7 +1520,7 @@
                                                                     tagname: 'input',
                                                                     attr: {
                                                                         type: 'checkbox',
-                                                                        name: 'chatmode'
+                                                                        name: 'chatmodel'
                                                                     },
                                                                     script: el => {
                                                                         config.chatmodel[0] === '1' ? el.checked = 'checked' : void 0;
@@ -1538,7 +1536,7 @@
                                                                     tagname: 'input',
                                                                     attr: {
                                                                         type: 'checkbox',
-                                                                        name: 'chatmode'
+                                                                        name: 'chatmodel'
                                                                     },
                                                                     script: el => {
                                                                         config.chatmodel[1] === '1' ? el.checked = 'checked' : void 0;
@@ -1594,6 +1592,22 @@
                                                         createCompleteElement({
                                                             tagname: 'span',
                                                             text: '秒',
+                                                        }),
+                                                        createCompleteElement({
+                                                            tagname: 'p',
+                                                            text: 'up主粉丝数至少:',
+                                                        }),
+                                                        createCompleteElement({
+                                                            tagname: 'input',
+                                                            attr: {
+                                                                type: 'number',
+                                                                name: 'minfollower',
+                                                                value: config.minfollower,
+                                                            }
+                                                        }),
+                                                        createCompleteElement({
+                                                            tagname: 'span',
+                                                            text: '人',
                                                         }),
                                                         createCompleteElement({
                                                             tagname: 'p',
@@ -1715,9 +1729,9 @@
                                 if ({}.hasOwnProperty.call(AllMyLotteryInfo,odyid)) {
                                     const {dyid,ts} = AllMyLotteryInfo[odyid];
                                     if (ts < (Date.now() / 1000) && ts !== 0) {
-                                        const {isMe} = await API.getLotteryNotice(dyid);
+                                        const {isMe} = await BiliAPI.getLotteryNotice(dyid);
                                         isMe === '中奖了！！！'?alert(`恭喜！！！中奖了 前往https://t.bilibili.com/${dyid}查看`): void 0;
-                                        API.rmDynamic(dyid)
+                                        BiliAPI.rmDynamic(dyid)
                                     }
                                 }
                             }
@@ -1732,31 +1746,44 @@
                                 maxday: '',
                                 scan_time: '',
                                 wait: '',
+                                minfollower: '',
                                 blacklist: '',
                                 relay: [],
                                 chat: [],
                                 }
+                        const {
+                            model,
+                            chatmodel,
+                            maxday,
+                            scan_time,
+                            wait,
+                            minfollower,
+                            blacklist,
+                            relay,
+                            chat
+                        } = configForm;
                         for (let i = 0; i < 2; i++) {
-                            configForm.mode[i].checked ? newConfig.model += '1' : newConfig.model += '0';
-                            configForm.chatmode[i].checked ? newConfig.chatmodel += '1' : newConfig.chatmodel += '0';
+                            model[i].checked ? newConfig.model += '1' : newConfig.model += '0';
+                            chatmodel[i].checked ? newConfig.chatmodel += '1' : newConfig.chatmodel += '0';
                         }
-                        newConfig.maxday = Number(configForm['maxday'].value) < 0 ? '-1' : configForm['maxday'].value;
-                        newConfig.scan_time = (Number(configForm.scan_time.value) * 60000).toString();
-                        newConfig.wait = (Number(configForm.wait.value) * 1000).toString();
-                        newConfig.blacklist = configForm.blacklist.value;
-                        newConfig.relay = configForm.relay.value.split(',');
-                        newConfig.chat = configForm.chat.value.split(',');
+                        newConfig.maxday = Number(maxday.value) < 0 ? '-1' : maxday.value;
+                        newConfig.scan_time = (Number(scan_time.value) * 60000).toString();
+                        newConfig.wait = (Number(wait.value) * 1000).toString();
+                        newConfig.minfollower = minfollower.value;
+                        newConfig.blacklist = blacklist.value;
+                        newConfig.relay = relay.value.split(',');
+                        newConfig.chat = chat.value.split(',');
                         config = newConfig;
                         eventBus.emit('Modify_settings',JSON.stringify(newConfig));
                     }
                         break;
                     case 'btn1':
-                        API.rmDynamic(ev.target.dataset.dyid);
-                        API.cancelAttention(ev.target.dataset.uid);
+                        BiliAPI.rmDynamic(ev.target.dataset.dyid);
+                        BiliAPI.cancelAttention(ev.target.dataset.uid);
                         infotab.removeChild(ev.target.parentNode);
                         break;
                     case 'btn2':
-                        API.rmDynamic(ev.target.dataset.dyid)
+                        BiliAPI.rmDynamic(ev.target.dataset.dyid)
                         infotab.removeChild(ev.target.parentNode);
                         break;
                     default:
@@ -1820,7 +1847,7 @@
             let elemarray = [];
             for (let one of arr) {
                 let LotteryNotice = one.origin_hasOfficialLottery
-                    ? await API.getLotteryNotice(one.origin_dynamic_id) 
+                    ? await BiliAPI.getLotteryNotice(one.origin_dynamic_id) 
                     : {ts:0,text:'非官方抽奖请自行查看',item:'null',isMe:'未知'};
                 LotteryNotice.origin_description = one.origin_description;
                 LotteryNotice.dynamic_id = one.dynamic_id;/* 用于删除动态 */
@@ -1946,7 +1973,10 @@
             Tooltip.log(document.title);
             return;
         }
-        if (/(compatible|Trident)/.test(navigator.appVersion)) {alert('当前浏览器内核为IE内核，请使用非IE内核浏览器!');return}
+        if (/(compatible|Trident)/.test(navigator.appVersion)) {
+            alert('当前浏览器内核为IE内核，请使用非IE内核浏览器!');
+            return;
+        }
         /* 注册事件 */
         { 
             {
@@ -1969,9 +1999,25 @@
                 await Base.storage.set('config', detail);
                 Tooltip.log('设置修改成功');
             })
+            eventBus.on('Show_Main_Menu', async () => {
+                Tooltip.log('加载主菜单');
+                let configstr = await Base.storage.get('config');
+                if (typeof configstr === 'undefined') {
+                    await Base.storage.set('config', JSON.stringify(config));
+                    Tooltip.log('设置修改成功');
+                } else {
+                    /**本地设置 */
+                    let _config = JSON.parse(configstr);
+                    Object.keys(config).forEach(key => {
+                        typeof _config[key] === 'undefined' ? _config[key] = config[key] : void 0;
+                    })
+                    config = _config;
+                }
+                (new MainMenu()).init();
+            })
         }
-        API.sendChat('453380690548954982', (new Date(Date.now())).toLocaleString() + Script.version, 17, false);
-        await GlobalVar.getAllMyLotteryInfo();/* 设置初始化 */
-        (new MainMenu()).init();
+        await GlobalVar.getAllMyLotteryInfo();/* 转发信息初始化 */
+        eventBus.emit('Show_Main_Menu');
+        BiliAPI.sendChat('453380690548954982', (new Date(Date.now())).toLocaleString() + Script.version, 17, false);
     })()
 })();
