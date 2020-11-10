@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bili动态抽奖助手
 // @namespace    http://tampermonkey.net/
-// @version      3.6.3
+// @version      3.6.5
 // @description  自动参与B站"关注转发抽奖"活动
 // @author       shanmite
 // @include      /^https?:\/\/space\.bilibili\.com/[0-9]*/
@@ -13,7 +13,7 @@
 (function () {
     "use strict"
     const Script = {
-        version: '|version: 3.6.3',
+        version: '|version: 3.6.5',
         author: '@shanmite',
         UIDs: [
             213931643,
@@ -45,6 +45,7 @@
         wait: '20000', /* 20s */
         minfollower: '500',/* 最少500人关注 */
         blacklist: '',
+        whiteklist: '',
         relay: ['转发动态'],
         chat: [
             '[OK]', '[星星眼]', '[歪嘴]', '[喜欢]', '[偷笑]', '[笑]', '[喜极而泣]', '[辣眼睛]', '[吃瓜]', '[奋斗]',
@@ -174,7 +175,7 @@
                 }
             },
             /**
-             * 
+             * 存储本地值
              * @param {string} key
              * @param {string} value 
              */
@@ -187,7 +188,7 @@
                     await GM.setValue(key,value)
                     return;
                 }
-            }
+            },
         }
     }
     /**
@@ -328,12 +329,12 @@
             Lottery: (()=>{
                 return Script.UIDs.concat(Script.TAGs);
             })(),
+            /**
+             * 获取本地存储信息
+             */
             getAllMyLotteryInfo: async() => {
-                const allMyLotteryInfo = await Base.storage.get('AllMyLotteryInfo');
+                const allMyLotteryInfo = await Base.storage.get(myUID);
                 if (typeof allMyLotteryInfo === 'undefined' ) {
-                    const AllMyDyID = await Base.storage.get('AllMyDyID');
-                    // eslint-disable-next-line no-undef
-                    if (typeof AllMyDyID !== 'undefined') GM.deleteValue('AllMyDyID');
                     Tooltip.log('第一次使用,初始化中...');
                     let alldy = await Public.prototype.checkAllDynamic(myUID,50);
                     let obj = {};
@@ -343,14 +344,14 @@
                             obj[origin_dynamic_id] = [dynamic_id,0]
                         }
                     }
-                    await Base.storage.set('AllMyLotteryInfo',JSON.stringify(obj));
+                    await Base.storage.set(myUID,JSON.stringify(obj));
                     Tooltip.log('初始化成功');
                 } else {
                     return allMyLotteryInfo
                 }
             },
             /**
-             * 
+             * 增加动态信息
              * @param {string|''} dyid
              * @param {string} odyid
              * @param {number|0} ts
@@ -362,9 +363,22 @@
                 const [_dyid,_ts] = [obj[odyid][0],obj[odyid][1]];
                 obj[odyid][0] = typeof _dyid === 'undefined' ? dyid : dyid === '' ? _dyid : dyid;
                 obj[odyid][1] = typeof _ts === 'undefined' ? ts : ts === 0 ? _ts : ts;
-                await Base.storage.set('AllMyLotteryInfo', JSON.stringify(obj));
+                await Base.storage.set(myUID, JSON.stringify(obj));
                 Tooltip.log('新增数据存储至本地');
+                return;
             },
+            /**
+             * 移除一条动态信息
+             * @param {string} odyid
+             */
+            deleteLotteryInfo: async (odyid)=>{
+                const allMyLotteryInfo = await module.getAllMyLotteryInfo();
+                let obj = JSON.parse(allMyLotteryInfo);
+                delete obj[odyid];
+                await Base.storage.set(myUID, JSON.stringify(obj));
+                Tooltip.log('本地移除一条动态数据');
+                return;
+            }
         };
         return module;
     })()
@@ -958,7 +972,7 @@
             }[]>
         } 获取前 pages*12 个动态信息
          */
-        async checkAllDynamic (hostuid, pages) {
+        async checkAllDynamic(hostuid, pages, time = 0) {
             Tooltip.log(`准备读取${pages}页自己的动态信息`);
             const mDR = this.modifyDynamicRes,
                 getOneDynamicInfoByUID = BiliAPI.getOneDynamicInfoByUID,
@@ -994,6 +1008,7 @@
                     i + 1 < pages ? Tooltip.log(`开始读取第${i+2}页动态信息`) : Tooltip.log(`${pages}页信息全部成功读取完成`);
                     offset = nextinfo.next_offset;
                 }
+                await Base.delay(time);
             }
             return(allModifyDynamicResArray);
         }
@@ -1235,8 +1250,10 @@
             const AllMyLotteryInfo = JSON.parse(await GlobalVar.getAllMyLotteryInfo());
             const keyArr = Object.keys(AllMyLotteryInfo);
             if (keyArr.length > 800) {
+                Tooltip.log('已储存800条消息,开始删除最初转发的内容');
                 for (let i = 0; i < keyArr.length - 1500; i++) {
                     let dyid = AllMyLotteryInfo[keyArr[i]][0];
+                    GlobalVar.deleteLotteryInfo(keyArr[i]);
                     BiliAPI.rmDynamic(dyid);
                 }
             }
@@ -1619,9 +1636,23 @@
                                                                 cols: '65',
                                                                 rows: '10',
                                                                 name: 'blacklist',
-                                                                placeholder: "动态的id指的是点进动态之后链接中的那一串数字,此处内容格式无特殊要求"
+                                                                placeholder: "不再参与相关的的抽奖活动,动态的id指的是点进动态之后链接中的那一串数字,此处内容格式无特殊要求"
                                                             },
                                                             text: config.blacklist,
+                                                        }),
+                                                        createCompleteElement({
+                                                            tagname: 'p',
+                                                            text: '此处存放白名单(用户UID或动态的ID):',
+                                                        }),
+                                                        createCompleteElement({
+                                                            tagname: 'textarea',
+                                                            attr: {
+                                                                cols: '65',
+                                                                rows: '10',
+                                                                name: 'whitelist',
+                                                                placeholder: "批量取关删动态时的受保护名单,此处内容格式无特殊要求"
+                                                            },
+                                                            text: config.whitelist,
                                                         }),
                                                         createCompleteElement({
                                                             tagname: 'p',
@@ -1678,7 +1709,8 @@
             document.body.appendChild(frg);
         }
         eventListener() {
-            const shanmitemenu = document.querySelector('.shanmitemenu')
+            const self = this
+                , shanmitemenu = document.querySelector('.shanmitemenu')
                 , box = shanmitemenu.querySelector('.box')
                 , tabsarr = shanmitemenu.querySelectorAll('.tab')
                 , infotab = shanmitemenu.querySelector('.tab.info')
@@ -1689,7 +1721,7 @@
                         element.style.display = index == num ? 'block' : 'none';
                     }
                 }
-            show(0)
+            show(0);
             shanmitemenu.addEventListener('click', ev => {
                 const id = ev.target.id;
                 switch (id) {
@@ -1705,7 +1737,7 @@
                     case 'showtab0': {
                         show(0);
                         const childcard = infotab.querySelectorAll('.card');
-                        childcard.forEach(card=>{
+                        childcard.forEach(card => {
                             infotab.removeChild(card);
                         })
                         this.sortInfoAndShow();
@@ -1715,42 +1747,68 @@
                         show(1);
                     }
                         break;
-                    case 'lottery': 
+                    case 'lottery':
                         eventBus.emit('Turn_on_the_Monitor');
                         break;
                     case 'checkme': {
-                        alert('仅能查看官方抽奖');
-                        (async()=>{
-                            let i = 0;
+                        alert('[Bili动态抽奖助手]温馨提示:\n自检———为了防止重复转发和减少网络请求,每完成一次抽奖都会将相关信息储存在本地,自检即是在本地信息中提取开奖信息，并进行一系列操作');
+                        (async () => {
+                            let [i,j,k] = [0,0,0];
                             const str = await GlobalVar.getAllMyLotteryInfo()
                                 , AllMyLotteryInfo = JSON.parse(str);
                             for (const odyid in AllMyLotteryInfo) {
-                                i++;
-                                if ({}.hasOwnProperty.call(AllMyLotteryInfo,odyid)) {
-                                    const {dyid,ts} = AllMyLotteryInfo[odyid];
-                                    if (ts < (Date.now() / 1000) && ts !== 0) {
-                                        const {isMe} = await BiliAPI.getLotteryNotice(dyid);
-                                        isMe === '中奖了！！！'?alert(`恭喜！！！中奖了 前往https://t.bilibili.com/${dyid}查看`): void 0;
-                                        BiliAPI.rmDynamic(dyid)
+                                if ({}.hasOwnProperty.call(AllMyLotteryInfo, odyid)) {
+                                    const [dyid, ts] = AllMyLotteryInfo[odyid];
+                                    if (ts === 0) {
+                                        k++;
+                                    } else {
+                                        i++;
+                                        if (ts < (Date.now() / 1000)) {
+                                            j++;
+                                            const { isMe } = await BiliAPI.getLotteryNotice(dyid);
+                                            isMe === '中奖了！！！' ? alert(`恭喜！！！中奖了 前往https://t.bilibili.com/${dyid}查看`) : Tooltip.log('未中奖');
+                                            Tooltip.log(`移除过期官方动态${dyid}`);
+                                            BiliAPI.rmDynamic(dyid);
+                                            await GlobalVar.deleteLotteryInfo(odyid)
+                                        }
                                     }
                                 }
                             }
-                            alert(`${i}条动态查看完毕`)
+                            alert(`自检完毕\n共查看${i + k}条动态\n官方动态:共${i}条 过期${j}条 未开奖${i - j}条\n(仅能查看官方抽奖)`);
+                            const isKillAll = confirm('是否进入强力清除模式(建议在关注数达到上限时使用)\n在白名单内填入不想移除的动态和up主\n此功能将会移除此外所有信息');
+                            if (isKillAll) {
+                                const isContinue = confirm('(耗时)是否继续?');
+                                if (isContinue) {
+                                    if (!confirm('请再次确定')) return;
+                                    const a = prompt('只删除动态请输入"1"\n只移除关注请输入"2"\n全选请输入"3"');
+                                    const ALL = await self.checkAllDynamic(GlobalVar.myUID, 200, 3000);
+                                    for (let index = 0; index < ALL.length; index++) {
+                                        const {dynamic_id,origin_uid} = ALL[index]
+                                            , reg1 = new RegExp(dynamic_id)
+                                            , reg2 = new RegExp(origin_uid);
+                                        (a === "1" || a === "3" ) && !reg1.test(config.whiteklist) ? BiliAPI.rmDynamic(dynamic_id) : void 0;
+                                        (a === "2" || a === "3") && !reg2.test(config.whiteklist) ? BiliAPI.cancelAttention(origin_uid) : void 0;
+                                        await Base.delay(3000);
+                                    }
+                                    alert('成功清除,感谢使用')
+                                }
+                            }
                         })()
                     }
                         break;
                     case 'save': {
                         let newConfig = {
-                                model: '',
-                                chatmodel: '',
-                                maxday: '',
-                                scan_time: '',
-                                wait: '',
-                                minfollower: '',
-                                blacklist: '',
-                                relay: [],
-                                chat: [],
-                                }
+                            model: '',
+                            chatmodel: '',
+                            maxday: '',
+                            scan_time: '',
+                            wait: '',
+                            minfollower: '',
+                            blacklist: '',
+                            whitelist: '',
+                            relay: [],
+                            chat: [],
+                        }
                         const {
                             model,
                             chatmodel,
@@ -1759,6 +1817,7 @@
                             wait,
                             minfollower,
                             blacklist,
+                            whitelist,
                             relay,
                             chat
                         } = configForm;
@@ -1771,10 +1830,11 @@
                         newConfig.wait = (Number(wait.value) * 1000).toString();
                         newConfig.minfollower = minfollower.value;
                         newConfig.blacklist = blacklist.value;
+                        newConfig.whitelist = whitelist.value;
                         newConfig.relay = relay.value.split(',');
                         newConfig.chat = chat.value.split(',');
                         config = newConfig;
-                        eventBus.emit('Modify_settings',JSON.stringify(newConfig));
+                        eventBus.emit('Modify_settings', JSON.stringify(newConfig));
                     }
                         break;
                     case 'btn1':
@@ -1974,8 +2034,10 @@
             return;
         }
         if (/(compatible|Trident)/.test(navigator.appVersion)) {
-            alert('当前浏览器内核为IE内核，请使用非IE内核浏览器!');
+            alert('[Bili动态抽奖助手]当前浏览器内核为IE内核,请使用非IE内核浏览器!');
             return;
+        } else {
+            if (!/Chrome/.test(navigator.appVersion)) alert('[Bili动态抽奖助手]出现问题请使用Chrome或Edge浏览器')
         }
         /* 注册事件 */
         { 
