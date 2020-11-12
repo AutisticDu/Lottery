@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bili动态抽奖助手
 // @namespace    http://tampermonkey.net/
-// @version      3.6.5
+// @version      3.6.6
 // @description  自动参与B站"关注转发抽奖"活动
 // @author       shanmite
 // @include      /^https?:\/\/space\.bilibili\.com/[0-9]*/
@@ -1782,7 +1782,7 @@
                                     if (!confirm('请再次确定')) return;
                                     const a = prompt('只删除动态请输入"1"\n只移除关注请输入"2"\n全选请输入"3"');
                                     const ALL = await self.checkAllDynamic(GlobalVar.myUID, 200, 3000);
-                                    for (let index = 0; index < ALL.length; index++) {
+                                    for (let index = ALL.length - 1; index > 2; index--) {
                                         const {dynamic_id,origin_uid} = ALL[index]
                                             , reg1 = new RegExp(dynamic_id)
                                             , reg2 = new RegExp(origin_uid);
