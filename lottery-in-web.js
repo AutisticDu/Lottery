@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bili动态抽奖助手
 // @namespace    http://tampermonkey.net/
-// @version      3.6.6
+// @version      3.6.7
 // @description  自动参与B站"关注转发抽奖"活动
 // @author       shanmite
 // @include      /^https?:\/\/space\.bilibili\.com/[0-9]*/
@@ -13,7 +13,7 @@
 (function () {
     "use strict"
     const Script = {
-        version: '|version: 3.6.5',
+        version: '|version: 3.6.7',
         author: '@shanmite',
         UIDs: [
             213931643,
@@ -160,6 +160,56 @@
             frg.appendChild(el);
             return frg;
         },
+        /**
+         * 提取开奖信息
+         * @param {string} des 描述
+         * @returns {
+                {
+                    ts: number|0;
+                    text:string|'开奖时间: 未填写开奖时间';
+                    item:string|'请自行查看';
+                    isMe:string|'请自行查看';
+                }
+         * }
+         */
+        getLotteryNotice: des => {
+            const r = /([\d零一二两三四五六七八九十]+)[.月]([\d零一二两三四五六七八九十]+)[日号]?/;
+            if (des === '') return {
+                ts: 0,
+                text: `开奖时间: 未填写开奖时间`,
+                item: '请自行查看',
+                isMe: '请自行查看'
+            }
+            const _date = r.exec(des) || [];
+            const timestamp10 = ((month, day) => {
+                if (month && day) {
+                    let date = new Date(`${new Date(Date.now()).getFullYear()}-${month}-${day} 23:59:59`).getTime()
+                    if (!isNaN(date)) return date / 1000;
+                }
+                return 0
+            })(_date[1], _date[2])
+            if ( timestamp10 === 0) return {
+                ts: 0,
+                text: `开奖时间: 未填写开奖时间`,
+                item: '请自行查看',
+                isMe: '请自行查看'
+            }
+            const timestamp13 = timestamp10 * 1000,
+                time = new Date(timestamp13);
+            const remain = (() => {
+                const timestr = ((timestamp13 - Date.now()) / 86400000).toString()
+                    , timearr = timestr.replace(/(\d+)\.(\d+)/, "$1,0.$2").split(',');
+                const text = timearr[0][0] === '-' ? `开奖时间已过${timearr[0].substring(1)}天余${parseInt(timearr[1] * 24)}小时` : `还有${timearr[0]}天余${parseInt(timearr[1] * 24)}小时`;
+                return text
+            })();
+            return {
+                ts: timestamp10,
+                text: `开奖时间: ${time.toLocaleString()} ${remain}`,
+                item: '请自行查看',
+                isMe: '请自行查看'
+            };
+        },
+        /**存储 */
         storage: {
             /**
              * 获取本地值
@@ -692,7 +742,7 @@
                                 isMe: isMe
                             });
                         } else {
-                            Tooltip.warn(`获取开奖信息失败\n${responseText}`);
+                            Tooltip.log(`无法获取非官方抽奖信息\n${responseText}`);
                             resolve({
                                 ts: 0,
                                 text: '获取开奖信息失败',
@@ -731,8 +781,26 @@
                             Tooltip.log('[自动关注]关注+1');
                             resolve()
                         } else {
-                            Tooltip.warn(`[自动关注]失败\n${responseText}`);
-                            reject()
+                            Tooltip.log(`[自动关注]失败,尝试切换线路\n${responseText}`);
+                            Ajax.post({
+                                url: 'https://api.vc.bilibili.com/feed/v1/feed/SetUserFollow',
+                                hasCookies: true,
+                                dataType: 'application/x-www-form-urlencoded',
+                                data: {
+                                    type: 1,
+                                    follow: uid,
+                                    csrf: GlobalVar.csrf
+                                },
+                                success: responseText => {
+                                    if (/^{"code":0/.test(responseText)) {
+                                        Tooltip.log('[自动关注]关注+1');
+                                        resolve()
+                                    } else {
+                                        Tooltip.log(`[自动关注]失败\n${responseText}`);
+                                        reject()
+                                    }
+                                }
+                            })
                         }
                     }
                 })
@@ -785,7 +853,24 @@
                     if (res.code === 0) {
                         Tooltip.log('[自动取关]取关成功')
                     } else {
-                        Tooltip.warn(`[自动取关]取关失败\n${responseText}`)
+                        Tooltip.log(`[自动取关]失败,尝试切换线路\n${responseText}`);
+                        Ajax.post({
+                            url: 'https://api.vc.bilibili.com/feed/v1/feed/SetUserFollow',
+                            hasCookies: true,
+                            dataType: 'application/x-www-form-urlencoded',
+                            data: {
+                                type: 0,
+                                follow: uid,
+                                csrf: GlobalVar.csrf
+                            },
+                            success: responseText => {
+                                if (/^{"code":0/.test(responseText)) {
+                                    Tooltip.log('[自动取关]取关成功');
+                                } else {
+                                    Tooltip.log(`[自动取关]失败\n${responseText}`);
+                                }
+                            }
+                        })
                     }
                 }
             })
@@ -1290,7 +1375,8 @@
                 }else if(!hasOfficialLottery&& model[1] === '1') {
                     const followerNum = await BiliAPI.getUserInfo(uid);
                     if (followerNum < Number(minfollower)) continue;
-                    isLottery = /[关转]/.test(description) && !befilter;
+                    ts = Base.getLotteryNotice(description).ts;
+                    isLottery = /[关转]/.test(description) && !befilter && (ts === 0 || (ts > (Date.now() / 1000) && ts < maxday));
                     isSendChat = chatmodel[1] === '1';
                 }
                 if(isLottery) {
@@ -1767,7 +1853,7 @@
                                             j++;
                                             const { isMe } = await BiliAPI.getLotteryNotice(dyid);
                                             isMe === '中奖了！！！' ? alert(`恭喜！！！中奖了 前往https://t.bilibili.com/${dyid}查看`) : Tooltip.log('未中奖');
-                                            Tooltip.log(`移除过期官方动态${dyid}`);
+                                            Tooltip.log(`移除过期官方或非官方动态${dyid}`);
                                             BiliAPI.rmDynamic(dyid);
                                             await GlobalVar.deleteLotteryInfo(odyid)
                                         }
@@ -1908,7 +1994,7 @@
             for (let one of arr) {
                 let LotteryNotice = one.origin_hasOfficialLottery
                     ? await BiliAPI.getLotteryNotice(one.origin_dynamic_id) 
-                    : {ts:0,text:'非官方抽奖请自行查看',item:'null',isMe:'未知'};
+                    : Base.getLotteryNotice(one.origin_description);
                 LotteryNotice.origin_description = one.origin_description;
                 LotteryNotice.dynamic_id = one.dynamic_id;/* 用于删除动态 */
                 LotteryNotice.origin_uid = one.origin_uid;/* 取关 */
@@ -2019,7 +2105,7 @@
              * 按ts从小到大排序
              */
             protoArr.sort((a, b) => {
-                return a.ts - b.ts;
+                return b.ts - a.ts;
             })
             protoArr.forEach(one => {
                 self.creatLotteryDetailInfo(one)
