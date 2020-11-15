@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bili动态抽奖助手
 // @namespace    http://tampermonkey.net/
-// @version      3.6.7
+// @version      3.6.8
 // @description  自动参与B站"关注转发抽奖"活动
 // @author       shanmite
 // @include      /^https?:\/\/space\.bilibili\.com/[0-9]*/
@@ -13,7 +13,7 @@
 (function () {
     "use strict"
     const Script = {
-        version: '|version: 3.6.7',
+        version: '|version: 3.6.8',
         author: '@shanmite',
         UIDs: [
             213931643,
@@ -1046,7 +1046,7 @@
                 uid: number;
                 dynamic_id: string;
                 description: string;
-                type: string;
+                type: number;
                 origin_uid: string;
                 origin_uname: string;
                 origin_rid_str: string;
@@ -1860,8 +1860,8 @@
                                     }
                                 }
                             }
-                            alert(`自检完毕\n共查看${i + k}条动态\n官方动态:共${i}条 过期${j}条 未开奖${i - j}条\n(仅能查看官方抽奖)`);
-                            const isKillAll = confirm('是否进入强力清除模式(建议在关注数达到上限时使用)\n在白名单内填入不想移除的动态和up主\n此功能将会移除此外所有信息');
+                            alert(`自检完毕\n共查看${i + k}条动态\n能识别开奖时间的:共${i}条 过期${j}条 未开奖${i - j}条\n`);
+                            const isKillAll = confirm('是否进入强力清除模式(建议在关注数达到上限时使用)\n在白名单内填入不想移除的动态和up主\n此功能将会移除所有的转发信息');
                             if (isKillAll) {
                                 const isContinue = confirm('(耗时)是否继续?');
                                 if (isContinue) {
@@ -1869,13 +1869,16 @@
                                     const a = prompt('只删除动态请输入"1"\n只移除关注请输入"2"\n全选请输入"3"');
                                     const ALL = await self.checkAllDynamic(GlobalVar.myUID, 200, 3000);
                                     for (let index = ALL.length - 1; index > 2; index--) {
-                                        const {dynamic_id,origin_uid} = ALL[index]
+                                        const {type, dynamic_id,origin_uid} = ALL[index]
                                             , reg1 = new RegExp(dynamic_id)
                                             , reg2 = new RegExp(origin_uid);
-                                        (a === "1" || a === "3" ) && !reg1.test(config.whiteklist) ? BiliAPI.rmDynamic(dynamic_id) : void 0;
-                                        (a === "2" || a === "3") && !reg2.test(config.whiteklist) ? BiliAPI.cancelAttention(origin_uid) : void 0;
+                                        if (type === 1) {
+                                                (a === "1" || a === "3" ) && !reg1.test(config.whiteklist) ? BiliAPI.rmDynamic(dynamic_id) : void 0;
+                                                (a === "2" || a === "3") && !reg2.test(config.whiteklist) ? BiliAPI.cancelAttention(origin_uid) : void 0;
+                                        }
                                         await Base.delay(3000);
                                     }
+                                    Base.storage.set(GlobalVar.myUID,'{}');
                                     alert('成功清除,感谢使用')
                                 }
                             }

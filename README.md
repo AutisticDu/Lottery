@@ -1,6 +1,7 @@
 # Bili动态抽奖助手
+[Github Actions云端版本](https://github.com/shanmite/LotteryAutoScript)
 ## 目的
-自动参与动态互动抽奖(关注与转发)
+自动参与动态互动抽奖(关注与转发)  
 ## 原理
 ### 模式一
 监听指定的用户的转发动作  
