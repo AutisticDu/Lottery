@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bili动态抽奖助手
 // @namespace    http://tampermonkey.net/
-// @version      3.6.8
+// @version      3.6.9
 // @description  自动参与B站"关注转发抽奖"活动
 // @author       shanmite
 // @include      /^https?:\/\/space\.bilibili\.com/[0-9]*/
@@ -13,7 +13,7 @@
 (function () {
     "use strict"
     const Script = {
-        version: '|version: 3.6.8',
+        version: '|version: 3.6.9',
         author: '@shanmite',
         UIDs: [
             213931643,
@@ -691,8 +691,22 @@
                         if (res.code === 0) {
                             resolve(res.data.follower)
                         } else {
-                            Tooltip.warn('获取关注数出错,可能是访问过频繁');
-                            resolve(0)
+                            Ajax.get({
+                                url: 'https://api.bilibili.com/x/relation/stat',
+                                queryStringsObj: {
+                                    vmid: uid
+                                },
+                                hasCookies: true,
+                                success: responseText => {
+                                    const res = Base.strToJson(responseText);
+                                    if (res.code === 0) {
+                                        resolve(res.data.follower)
+                                    } else {
+                                        Tooltip.warn('获取关注数出错,可能是访问过频繁');
+                                        resolve(0);
+                                    }
+                                }
+                            })
                         }
                     }
                 })
