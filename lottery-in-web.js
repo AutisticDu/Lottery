@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bili动态抽奖助手
 // @namespace    http://tampermonkey.net/
-// @version      3.6.9
+// @version      3.7.0
 // @description  自动参与B站"关注转发抽奖"活动
 // @author       shanmite
 // @include      /^https?:\/\/space\.bilibili\.com/[0-9]*/
@@ -13,7 +13,7 @@
 (function () {
     "use strict"
     const Script = {
-        version: '|version: 3.6.9',
+        version: '|version: 3.7.0',
         author: '@shanmite',
         UIDs: [
             213931643,
@@ -457,7 +457,8 @@
                     if (xhr.status === 200) {
                         options.success(xhr.responseText)
                     } else {
-                        throw new Error(`status = ${xhr.status}`)
+                        options.success('{"code":666}');
+                        console.error(`status = ${xhr.status}`);
                     }
                 })
                 xhr.addEventListener('error', () => {
@@ -683,7 +684,6 @@
                     url: 'https://api.bilibili.com/x/web-interface/card',
                     queryStringsObj: {
                         mid: uid,
-                        photo: false
                     },
                     hasCookies: true,
                     success: responseText => {
@@ -810,7 +810,7 @@
                                         Tooltip.log('[自动关注]关注+1');
                                         resolve()
                                     } else {
-                                        Tooltip.log(`[自动关注]失败\n${responseText}`);
+                                        Tooltip.warn(`[自动关注]失败\n${responseText}`);
                                         reject()
                                     }
                                 }
@@ -881,7 +881,7 @@
                                 if (/^{"code":0/.test(responseText)) {
                                     Tooltip.log('[自动取关]取关成功');
                                 } else {
-                                    Tooltip.log(`[自动取关]失败\n${responseText}`);
+                                    Tooltip.warn(`[自动取关]失败\n${responseText}`);
                                 }
                             }
                         })
@@ -994,7 +994,7 @@
                     if (/^{"code":0/.test(responseText)) {
                         show ? Tooltip.log('[自动评论]评论成功') : void 0;
                     } else {
-                        show ? Tooltip.log('[自动评论]评论失败') : void 0;
+                        show ? Tooltip.warn('[自动评论]评论失败') : void 0;
                     }
                 }
             })
