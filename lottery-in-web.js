@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bili动态抽奖助手
 // @namespace    http://tampermonkey.net/
-// @version      3.7.1
+// @version      3.7.2
 // @description  自动参与B站"关注转发抽奖"活动
 // @author       shanmite
 // @include      /^https?:\/\/space\.bilibili\.com/[0-9]*/
@@ -13,7 +13,7 @@
 (function () {
     "use strict"
     const Script = {
-        version: '|version: 3.7.1',
+        version: '|version: 3.7.2',
         author: '@shanmite',
         UIDs: [
             213931643,
@@ -124,6 +124,33 @@
          */
         getRandomStr: arr => {
             return arr[parseInt(Math.random()*arr.length)]
+        },
+        /**
+         * 节流
+         * @param {Function} func 
+         * @param {number} delay 当函数在短时间内多次触发时，做节流，间隔delay时长再去执行
+         */
+        throttle(func, delay) {
+            let timer = null, // 用来保存setTimeout返回的值
+                startTime = Date.now(); // 创建节流函数的时间
+            return function () {
+                let curTime = Date.now(), // 返回的这个函数被调用的时间
+                    remaining = delay - (curTime - startTime), // 设定的delay与[上一次被调用的时间与现在的时间间隔]的差值
+                    context = this, // 上下文对象
+                    args = arguments; // 返回的这个函数执行时传入的参数
+                // 首先清掉定时器
+                clearTimeout(timer);
+                // // 假如距离上一次执行此函数的时间已经超过了设定的delay，则执行
+                if (remaining <= 0) {
+                    func.apply(context, args);
+                    startTime = Date.now(); // 重置最后执行时间为现在
+                    // 否则，等到间隔时间达到delay时，执行函数
+                } else {
+                    timer = setTimeout(() => {
+                        func.apply(context, args);
+                    }, remaining);
+                }
+            }
         },
         /**
          * 生成一段文档片段
@@ -1935,11 +1962,11 @@
             show(0);
             tabsarr[0].addEventListener(
                 'scroll',
-                (ev) => {
+                Base.throttle((ev) => {
                     const tab = ev.target;
                     if(tab.scrollHeight - tab.scrollTop <= 310)
                         self.sortInfoAndShow();
-                }
+                },1000)
             );
             shanmitemenu.addEventListener('click', ev => {
                 const id = ev.target.id;
