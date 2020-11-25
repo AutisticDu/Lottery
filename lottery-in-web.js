@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bili动态抽奖助手
 // @namespace    http://tampermonkey.net/
-// @version      3.7.0
+// @version      3.7.1
 // @description  自动参与B站"关注转发抽奖"活动
 // @author       shanmite
 // @include      /^https?:\/\/space\.bilibili\.com/[0-9]*/
@@ -13,7 +13,7 @@
 (function () {
     "use strict"
     const Script = {
-        version: '|version: 3.7.0',
+        version: '|version: 3.7.1',
         author: '@shanmite',
         UIDs: [
             213931643,
@@ -45,7 +45,7 @@
         wait: '20000', /* 20s */
         minfollower: '500',/* 最少500人关注 */
         blacklist: '',
-        whiteklist: '',
+        whitelist: '',
         relay: ['转发动态'],
         chat: [
             '[OK]', '[星星眼]', '[歪嘴]', '[喜欢]', '[偷笑]', '[笑]', '[喜极而泣]', '[辣眼睛]', '[吃瓜]', '[奋斗]',
@@ -386,7 +386,7 @@
                 const allMyLotteryInfo = await Base.storage.get(myUID);
                 if (typeof allMyLotteryInfo === 'undefined' ) {
                     Tooltip.log('第一次使用,初始化中...');
-                    let alldy = await Public.prototype.checkAllDynamic(myUID,50);
+                    let alldy = (await Public.prototype.checkAllDynamic(myUID,50)).allModifyDynamicResArray;
                     let obj = {};
                     for (let index = 0; index < alldy.length; index++) {
                         const {dynamic_id,origin_dynamic_id} = alldy[index];
@@ -1055,23 +1055,32 @@
          * 指定的用户UID
          * @param {number} pages
          * 读取页数
+         * @param {number} time
+         * 时延
          * @returns {
             Promise<{
-                uid: number;
-                dynamic_id: string;
-                description: string;
-                type: number;
-                origin_uid: string;
-                origin_uname: string;
-                origin_rid_str: string;
-                origin_dynamic_id: string;
-                origin_hasOfficialLottery: boolean;
-                origin_description: string;
-                origin_type: string;
-            }[]>
+                allModifyDynamicResArray: {
+                    uid: number;
+                    uname: string;
+                    createtime: number;
+                    rid_str: string;
+                    dynamic_id: string;
+                    type: number;
+                    description: string;
+                    hasOfficialLottery: boolean;
+                    origin_uid: number;
+                    origin_uname: string;
+                    origin_rid_str: string;
+                    origin_dynamic_id: string;
+                    orig_type: number;
+                    origin_description: string;
+                    origin_hasOfficialLottery: boolean;
+                }[],
+                offset: string
+            }>
         } 获取前 pages*12 个动态信息
          */
-        async checkAllDynamic(hostuid, pages, time = 0) {
+        async checkAllDynamic(hostuid, pages, time = 0, _offset = '0') {
             Tooltip.log(`准备读取${pages}页自己的动态信息`);
             const mDR = this.modifyDynamicRes,
                 getOneDynamicInfoByUID = BiliAPI.getOneDynamicInfoByUID,
@@ -1085,7 +1094,7 @@
              * [{}{}...{}]
              */
             let allModifyDynamicResArray = [];
-            let offset = '0';
+            let offset = _offset;
             for (let i = 0; i < pages; i++) {
                 Tooltip.log(`正在读取第${i+1}页动态`);
                 let OneDynamicInfo = await hadUidGetOneDynamicInfoByUID(offset);
@@ -1100,6 +1109,7 @@
                 const mDRArry = mDRdata.modifyDynamicResArray,
                     nextinfo = mDRdata.nextinfo;
                 if (nextinfo.has_more === 0) {
+                    offset = nextinfo.next_offset;
                     Tooltip.log(`成功读取${i+1}页信息(已经是最后一页了故无法读取更多)`);
                     break;
                 } else {
@@ -1109,7 +1119,7 @@
                 }
                 await Base.delay(time);
             }
-            return(allModifyDynamicResArray);
+            return ({ allModifyDynamicResArray, offset });
         }
         /**
          * 互动抽奖
@@ -1120,6 +1130,7 @@
                 modifyDynamicResArray: {
                     uid: number;
                     uname: string;
+                    createtime: number;
                     rid_str: string;
                     dynamic_id: string;
                     type: number;
@@ -1173,6 +1184,7 @@
                         , cardToJson = strToJson(card);
                     obj.uid = info.uid; /* 转发者的UID */
                     obj.uname = info.uname;/* 转发者的name */
+                    obj.createtime = desc.timestamp /* 动态的ts10 */
                     obj.rid_str = desc.rid_str;/* 用于发送评论 */
                     obj.type = desc.type /* 动态类型 */
                     obj.orig_type = desc.orig_type /* 源动态类型 */
@@ -1222,9 +1234,14 @@
                 modDR = self.modifyDynamicRes(hotdy);
             if(modDR === null) return null;
             Tooltip.log(`开始获取带话题#${tag_name}#的动态信息`);
-            let mDRdata = modDR.modifyDynamicResArray;
-            const newdy = await BiliAPI.getOneDynamicInfoByTag(tag_name,modDR.nextinfo.next_offset);
-            mDRdata.push.apply(mDRdata, self.modifyDynamicRes(newdy).modifyDynamicResArray);
+            let mDRdata = modDR.modifyDynamicResArray; /* 热门动态 */
+            let next_offset = modDR.nextinfo.next_offset;
+            for (let index = 0; index < 3; index++) {
+                const newdy = await BiliAPI.getOneDynamicInfoByTag(tag_name,next_offset);
+                const _modify = self.modifyDynamicRes(newdy);
+                mDRdata.push.apply(mDRdata, _modify.modifyDynamicResArray);
+                next_offset = _modify.nextinfo.next_offset;
+            }
             const fomatdata = mDRdata.map(o=>{
                 const hasOrigin = o.type === 1
                 return {
@@ -1305,7 +1322,7 @@
             this.attentionList = await BiliAPI.getAttentionList(GlobalVar.myUID);
             const isAdd = await this.startLottery();
             if (isAdd) {
-                let cADynamic = await this.checkAllDynamic(GlobalVar.myUID, 2); /* 检查我的所有动态 */
+                let cADynamic = (await this.checkAllDynamic(GlobalVar.myUID, 2)).allModifyDynamicResArray; /* 检查我的所有动态 */
                 /**
                  * 储存转发过的动态信息
                  */
@@ -1449,7 +1466,8 @@
      */
     class MainMenu extends Public{
         constructor() {
-            super()
+            super();
+            this.offset = '0';
         }
         init() {
             this.initUI();
@@ -1522,8 +1540,15 @@
                                             attr: {
                                                 id: 'showtab1',
                                             },
+                                            text: '清理动态',
+                                        }),
+                                        createCompleteElement({
+                                            tagname: 'div',
+                                            attr: {
+                                                id: 'showtab2',
+                                            },
                                             text: '设置',
-                                        })
+                                        }),
                                     ]
                                 }),
                                 createCompleteElement({
@@ -1541,21 +1566,106 @@
                                                 createCompleteElement({
                                                     tagname: 'button',
                                                     attr: {
-                                                        title: '查看是否中奖\n移除过期动态',
-                                                        id: 'checkme',
-                                                        style: 'position: absolute;right: 30px;bottom: 20px;'
+                                                        title: '显示并刷新开奖信息',
+                                                        id: 'showlottery',
+                                                        style: 'position: absolute;right: 30px;bottom: 50px;'
                                                     },
-                                                    text: '自检',
+                                                    text: '显示开奖',
                                                 }),
                                                 createCompleteElement({
                                                     tagname: 'button',
                                                     attr: {
                                                         title: '启动脚本',
                                                         id: 'lottery',
-                                                        style: 'position: absolute;right: 30px;bottom: 50px;'
+                                                        style: 'position: absolute;right: 30px;bottom: 20px;'
                                                     },
                                                     text: '启动脚本',
                                                 }),
+                                            ]
+                                        }),
+                                        createCompleteElement({
+                                            tagname: 'div',
+                                            attr: {
+                                                class: 'tab rmdy',
+                                            },
+                                            children: [
+                                                createCompleteElement({
+                                                    tagname: 'button',
+                                                    attr: {
+                                                        title: '仅移除动态',
+                                                        id: 'rmdy',
+                                                        style: 'position: absolute;right: 30px;bottom: 50px;'
+                                                    },
+                                                    text: '推荐模式',
+                                                }),
+                                                createCompleteElement({
+                                                    tagname: 'button',
+                                                    attr: {
+                                                        title: '强力',
+                                                        id: 'sudormdy',
+                                                        style: 'position: absolute;right: 30px;bottom: 20px;'
+                                                    },
+                                                    text: '强力模式',
+                                                }),
+                                                createCompleteElement({
+                                                    tagname: 'form',
+                                                    attr: {
+                                                        id: 'rmdyform',
+                                                    },
+                                                    children: [
+                                                        createCompleteElement({
+                                                            tagname: 'h3',
+                                                            text: '推荐模式:',
+                                                        }),
+                                                        createCompleteElement({
+                                                            tagname: 'p',
+                                                            text: '(使用存储在本地的动态id和开奖时间进行判断，移除过期的动态)',
+                                                        }),
+                                                        createCompleteElement({
+                                                            tagname: 'h3',
+                                                            text: '强力模式:',
+                                                        }),
+                                                        createCompleteElement({
+                                                            tagname: 'p',
+                                                            text: '(默认移除所有转发动态或关注up,使用前请在在白名单内填入不想移除的动态和up主,请定期使用此功能清空无法处理的动态和本地存储信息)',
+                                                        }),
+                                                        createCompleteElement({
+                                                            tagname: 'span',
+                                                            text: '移除',
+                                                        }),
+                                                        createCompleteElement({
+                                                            tagname: 'input',
+                                                            attr: {
+                                                                type: 'number',
+                                                                name: 'day',
+                                                                value: '15',
+                                                            }
+                                                        }),
+                                                        createCompleteElement({
+                                                            tagname: 'span',
+                                                            text: '天前的动态',
+                                                        }),
+                                                        createCompleteElement({
+                                                            tagname: 'br',
+                                                        }),
+                                                        createCompleteElement({
+                                                            tagname: 'span',
+                                                            text: '或',
+                                                        }),
+                                                        createCompleteElement({
+                                                            tagname: 'input',
+                                                            attr: {
+                                                                type: 'number',
+                                                                name: 'page',
+                                                                value: '5',
+                                                            }
+                                                        }),
+                                                        createCompleteElement({
+                                                            tagname: 'span',
+                                                            text: '页前的动态',
+                                                        })
+                                                    ]
+                                                })
                                             ]
                                         }),
                                         createCompleteElement({
@@ -1815,6 +1925,7 @@
                 , tabsarr = shanmitemenu.querySelectorAll('.tab')
                 , infotab = shanmitemenu.querySelector('.tab.info')
                 , configForm = shanmitemenu.querySelector('#config')
+                , rmdyForm = shanmitemenu.querySelector('#rmdyform')
                 , show = num => {
                     for (let index = 0; index < tabsarr.length; index++) {
                         const element = tabsarr[index];
@@ -1822,20 +1933,38 @@
                     }
                 }
             show(0);
+            tabsarr[0].addEventListener(
+                'scroll',
+                (ev) => {
+                    const tab = ev.target;
+                    if(tab.scrollHeight - tab.scrollTop <= 310)
+                        self.sortInfoAndShow();
+                }
+            );
             shanmitemenu.addEventListener('click', ev => {
                 const id = ev.target.id;
                 switch (id) {
-                    case 'showall': {
+                    case 'showall':
                         if (box.style.display == 'block') {
                             box.style.display = 'none';
                         } else {
                             show(0);
                             box.style.display = 'block';
                         }
-                    }
                         break;
-                    case 'showtab0': {
+                    case 'showtab0':
                         show(0);
+                        break;
+                    case 'showtab1':
+                        show(1);
+                        break;
+                    case 'showtab2':
+                        show(2);
+                        break;
+                    case 'lottery':
+                        eventBus.emit('Turn_on_the_Monitor');
+                        break;
+                    case 'showlottery':{
                         const childcard = infotab.querySelectorAll('.card');
                         childcard.forEach(card => {
                             infotab.removeChild(card);
@@ -1843,15 +1972,7 @@
                         this.sortInfoAndShow();
                     }
                         break;
-                    case 'showtab1': {
-                        show(1);
-                    }
-                        break;
-                    case 'lottery':
-                        eventBus.emit('Turn_on_the_Monitor');
-                        break;
-                    case 'checkme': {
-                        alert('[Bili动态抽奖助手]温馨提示:\n自检———为了防止重复转发和减少网络请求,每完成一次抽奖都会将相关信息储存在本地,自检即是在本地信息中提取开奖信息，并进行一系列操作');
+                    case 'rmdy':
                         (async () => {
                             let [i,j,k] = [0,0,0];
                             const str = await GlobalVar.getAllMyLotteryInfo()
@@ -1874,30 +1995,58 @@
                                     }
                                 }
                             }
-                            alert(`自检完毕\n共查看${i + k}条动态\n能识别开奖时间的:共${i}条 过期${j}条 未开奖${i - j}条\n`);
-                            const isKillAll = confirm('是否进入强力清除模式(建议在关注数达到上限时使用)\n在白名单内填入不想移除的动态和up主\n此功能将会移除所有的转发信息');
+                            alert(`清理动态完毕\n共查看${i + k}条动态\n能识别开奖时间的:共${i}条 过期${j}条 未开奖${i - j}条\n`);
+                        })()
+                        break;
+                    case 'sudormdy':
+                        (async () => {
+                            const isKillAll = confirm('是否进入强力清除模式(建议在关注数达到上限时使用)\n请确认是否需要在白名单内填入不想移除的动态和up主\n此功能将会移除所有的转发信息');
                             if (isKillAll) {
-                                const isContinue = confirm('(耗时)是否继续?');
-                                if (isContinue) {
-                                    if (!confirm('请再次确定')) return;
-                                    const a = prompt('只删除动态请输入"1"\n只移除关注请输入"2"\n全选请输入"3"');
-                                    const ALL = await self.checkAllDynamic(GlobalVar.myUID, 200, 3000);
-                                    for (let index = ALL.length - 1; index > 2; index--) {
-                                        const {type, dynamic_id,origin_uid} = ALL[index]
-                                            , reg1 = new RegExp(dynamic_id)
-                                            , reg2 = new RegExp(origin_uid);
-                                        if (type === 1) {
-                                                (a === "1" || a === "3" ) && !reg1.test(config.whiteklist) ? BiliAPI.rmDynamic(dynamic_id) : void 0;
-                                                (a === "2" || a === "3") && !reg2.test(config.whiteklist) ? BiliAPI.cancelAttention(origin_uid) : void 0;
+                                if (!confirm('请再次确定')) return;
+                                const a = prompt('只删除动态请输入"1"\n只移除关注请输入"2"\n全选请输入"3"\n移除动态和移除关注最好分开进行');
+                                const time = prompt('停顿时间(单位秒)');
+                                const {
+                                    day,
+                                    page
+                                } = rmdyForm;
+                                let offset = '0';
+                                const _time = Date.now()/1000 - Number(day.value)*86400;
+                                if (a === "1" || a === "3") {
+                                    for (let index = 0; index < 10000; index++) {
+                                        if (index < Number(page.value)) {
+                                            continue;
                                         }
-                                        await Base.delay(3000);
+                                        const { allModifyDynamicResArray, offset: _offset } = await self.checkAllDynamic(GlobalVar.myUID, 1, Number(time) * 1000, offset);
+                                        offset = _offset;
+                                        for (let index = 0; index < allModifyDynamicResArray.length; index++) {
+                                            const res = allModifyDynamicResArray[index];
+                                            const { type, createtime, dynamic_id, origin_uid } = res;
+                                            if (type === 1) {
+                                                const reg1 = new RegExp(dynamic_id)
+                                                    , reg2 = new RegExp(origin_uid);
+                                                if (createtime < _time) {
+                                                    (a === "1" || a === "3") && !reg1.test(config.whitelist) ? BiliAPI.rmDynamic(dynamic_id) : void 0;
+                                                    a === "3" && !reg2.test(config.whitelist) ? BiliAPI.cancelAttention(origin_uid) : void 0;
+                                                }
+                                            }
+                                        }
+                                        if (offset === '0') break;
                                     }
-                                    Base.storage.set(GlobalVar.myUID,'{}');
-                                    alert('成功清除,感谢使用')
+                                } else if (a === "2") {
+                                    const uidstr = await BiliAPI.getAttentionList(GlobalVar.myUID)
+                                        , uidarr = uidstr.split(',');
+                                    for (let index = 0; index < uidarr.length; index++) {
+                                        const uid = uidarr[index];
+                                        !uid.test(config.whitelist) ? BiliAPI.cancelAttention(uid) : void 0;
+                                        await Base.delay(Number(time) * 1000)
+                                    }
+                                }
+                                alert('成功清除,感谢使用');
+                                if (confirm('如果动态数量少于10条请点击确定以清空本地存储')) {
+                                    Base.storage.set(GlobalVar.myUID, '{}');
                                 }
                             }
                         })()
-                    }
                         break;
                     case 'save': {
                         let newConfig = {
@@ -1955,6 +2104,28 @@
             })
         }
         /**
+         * 排序后展示
+         * @returns {Promise<void>}
+         */
+        async sortInfoAndShow() {
+            const self = this
+            let protoArr = await this.fetchDynamicInfo();
+            /**
+             * 按ts从小到大排序
+             */
+            protoArr.sort((a, b) => {
+                return b.ts - a.ts;
+            })
+            protoArr.forEach(one => {
+                if (one.ts === 0||one.ts > Date.now() / 1000) {
+                    self.creatLotteryDetailInfo(one, 'color:green;')
+                } else {
+                    self.creatLotteryDetailInfo(one, 'color:red;')
+                }
+            })
+            return;
+        }
+        /**
          * 提取所需的信息
          * @return {
             Promise<{
@@ -1976,7 +2147,7 @@
          * 源动态ID
          */
         async fetchDynamicInfo() {
-            let allMDResArray = await this.checkAllDynamic(GlobalVar.myUID, 5);
+            let allMDResArray = await this.getNextDynamic();
             /**
              * 滤出抽奖信息
              */
@@ -2021,6 +2192,12 @@
             }
             return elemarray;
         }
+        async getNextDynamic() {
+            const self = this;
+            const {allModifyDynamicResArray, offset} = await self.checkAllDynamic(GlobalVar.myUID,5,200,this.offset);
+            self.offset = offset;
+            return allModifyDynamicResArray
+        }
         /**
          * 生成一条开奖信息卡片
          * @param {
@@ -2037,7 +2214,7 @@
             }
         } info
          */
-        creatLotteryDetailInfo(info) {
+        creatLotteryDetailInfo(info,color) {
             const createCompleteElement = Base.createCompleteElement
                 , infocards = document.querySelector('.tab.info')
                 , LotteryDetailInfo = createCompleteElement({
@@ -2064,7 +2241,7 @@
                         createCompleteElement({
                             tagname: 'p',
                             attr: {
-                                style: 'color:red;'
+                                style: color
                             },
                             text: info.text
                         }),
@@ -2111,24 +2288,7 @@
                 });
             infocards.appendChild(LotteryDetailInfo);
         }
-        /**
-         * 排序后展示
-         * @returns {Promise<void>}
-         */
-        async sortInfoAndShow() {
-            const self = this
-            let protoArr = await this.fetchDynamicInfo();
-            /**
-             * 按ts从小到大排序
-             */
-            protoArr.sort((a, b) => {
-                return b.ts - a.ts;
-            })
-            protoArr.forEach(one => {
-                self.creatLotteryDetailInfo(one)
-            })
-            return;
-        }
+
     }
     /**主函数 */
     (async function main() {

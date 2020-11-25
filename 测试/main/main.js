@@ -31,6 +31,10 @@
                 show(1);
             }
                 break
+            case 'showtab2': {
+                show(2);
+            }
+                break
             case 'save': {
                 let model = ''
                     , maxday = ''

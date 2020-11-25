@@ -18,12 +18,13 @@
         <div class="box" style="display: block">
             <div class="changetab">
                 <div id="showtab0">开奖信息</div>
-                <div id="showtab1">设置</div>
+                <div id="showtab1">清理动态</div>
+                <div id="showtab2">设置</div>
             </div>
             <div class="tabs">
                 <div class="tab info">
-                    <button id="lottery" style="position: absolute;right: 30px;bottom: 50px;">启动脚本</button>
-                    <button id="checkme" style="position: absolute;right: 30px;bottom: 20px;">自检</button>
+                    <button id="lottery" style="position: absolute;right: 30px;bottom: 20px;">启动脚本</button>
+                    <button id="showlottery" style="position: absolute;right: 30px;bottom: 50px;">显示开奖</button>
                     <div class="card">
                         <p style="color:#fb7299;">用户名:</p>
                         <p
@@ -68,7 +69,24 @@
                         <button id="btn1" data-dyid="[删除动态]" data-uid="[移除关注]">删除动态并取关</button>
                         <button id="btn2" data-dyid="[删除动态]">仅移除动态</button>
                     </div>
-                    </div>
+                </div>
+                <div class="tab rmdy">
+                    <button id="rmdy" style="position: absolute;right: 30px;bottom: 50px;">推荐模式</button>
+                    <button id="sudormdy" style="position: absolute;right: 30px;bottom: 20px;">强力模式</button>
+                    <form id="rmdyform">
+                        <h3>推荐模式:</h3>
+                        <p>(使用存储在本地的动态id和开奖时间进行判断，移除过期的动态)</p>
+                        <h3>强力模式:</h3>
+                        <p>(默认移除所有转发动态或关注up,使用前请在在白名单内填入不想移除的动态和up主)</p>
+                        <span>移除</span>
+                        <input type="number" name="day" value="15">
+                        <span>天前的动态</span>
+                        <br>
+                        <span>或</span>
+                        <input type="number" name="page" value="5">
+                        <span>页前的动态</span>
+                    </form>
+                </div>
                 <div class="tab config">
                     <button id="save" style="position: absolute;right: 30px;bottom: 20px;">保存设置</button>
                     <form id="config">
