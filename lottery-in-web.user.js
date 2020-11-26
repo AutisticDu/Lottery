@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         Bili动态抽奖助手(测试专用)
+// @name         Bili动态抽奖助手
 // @namespace    http://tampermonkey.net/
-// @version      1.0.0
+// @version      3.7.3
 // @description  自动参与B站"关注转发抽奖"活动
 // @author       shanmite
 // @include      /^https?:\/\/space\.bilibili\.com/[0-9]*/
@@ -9,17 +9,12 @@
 // @grant        GM.setValue
 // @grant        GM.getValue
 // @grant        GM.deleteValue
+// @grant        GM.xmlHttpRequest
+// @connect      gitee.com
 // ==/UserScript==
-// UIDs: [],
-// TAGs: ['动态抽奖']
-(async function () {
+(function () {
     "use strict"
-    const Script = {
-        version: '|version: 3.5.5',
-        author: '@shanmite',
-        UIDs: [],
-        TAGs: ['动态抽奖']
-    }
+    let [Script, config ] = [{},{}];
     /**
      * 基础工具
      */
@@ -91,6 +86,33 @@
             return arr[parseInt(Math.random()*arr.length)]
         },
         /**
+         * 节流
+         * @param {Function} func 
+         * @param {number} delay 当函数在短时间内多次触发时，做节流，间隔delay时长再去执行
+         */
+        throttle(func, delay) {
+            let timer = null, // 用来保存setTimeout返回的值
+                startTime = Date.now(); // 创建节流函数的时间
+            return function () {
+                let curTime = Date.now(), // 返回的这个函数被调用的时间
+                    remaining = delay - (curTime - startTime), // 设定的delay与[上一次被调用的时间与现在的时间间隔]的差值
+                    context = this, // 上下文对象
+                    args = arguments; // 返回的这个函数执行时传入的参数
+                // 首先清掉定时器
+                clearTimeout(timer);
+                // // 假如距离上一次执行此函数的时间已经超过了设定的delay，则执行
+                if (remaining <= 0) {
+                    func.apply(context, args);
+                    startTime = Date.now(); // 重置最后执行时间为现在
+                    // 否则，等到间隔时间达到delay时，执行函数
+                } else {
+                    timer = setTimeout(() => {
+                        func.apply(context, args);
+                    }, remaining);
+                }
+            }
+        },
+        /**
          * 生成一段文档片段
          * @param {
             {
@@ -105,7 +127,7 @@
         } StructInfo
          * @returns {DocumentFragment}
          */
-        creatCompleteElement: (StructInfo) => {
+        createCompleteElement: (StructInfo) => {
             const { tagname, attr, script, text, children } = StructInfo;
             if (typeof tagname !== 'string') throw new TypeError('at tagname');
             let frg = document.createDocumentFragment();
@@ -125,6 +147,71 @@
             frg.appendChild(el);
             return frg;
         },
+        /**
+         * 提取开奖信息
+         * @param {string} des 描述
+         * @returns {
+                {
+                    ts: number|0;
+                    text:string|'开奖时间: 未填写开奖时间';
+                    item:string|'请自行查看';
+                    isMe:string|'请自行查看';
+                }
+         * }
+         */
+        getLotteryNotice: des => {
+            const r = /([\d零一二两三四五六七八九十]+)[.月]([\d零一二两三四五六七八九十]+)[日号]?/;
+            if (des === '') return {
+                ts: 0,
+                text: `开奖时间: 未填写开奖时间`,
+                item: '请自行查看',
+                isMe: '请自行查看'
+            }
+            const _date = r.exec(des) || [];
+            const timestamp10 = ((month, day) => {
+                if (month && day) {
+                    let date = new Date(`${new Date(Date.now()).getFullYear()}-${month}-${day} 23:59:59`).getTime()
+                    if (!isNaN(date)) return date / 1000;
+                }
+                return 0
+            })(_date[1], _date[2])
+            if ( timestamp10 === 0) return {
+                ts: 0,
+                text: `开奖时间: 未填写开奖时间`,
+                item: '请自行查看',
+                isMe: '请自行查看'
+            }
+            const timestamp13 = timestamp10 * 1000,
+                time = new Date(timestamp13);
+            const remain = (() => {
+                const timestr = ((timestamp13 - Date.now()) / 86400000).toString()
+                    , timearr = timestr.replace(/(\d+)\.(\d+)/, "$1,0.$2").split(',');
+                const text = timearr[0][0] === '-' ? `开奖时间已过${timearr[0].substring(1)}天余${parseInt(timearr[1] * 24)}小时` : `还有${timearr[0]}天余${parseInt(timearr[1] * 24)}小时`;
+                return text
+            })();
+            return {
+                ts: timestamp10,
+                text: `开奖时间: ${time.toLocaleString()} ${remain}`,
+                item: '请自行查看',
+                isMe: '请自行查看'
+            };
+        },
+        /**
+         * @returns {Promise<{}>} 设置
+         */
+        getMyJson: () => {
+            return new Promise((resolve) => {
+                // eslint-disable-next-line no-undef
+                GM.xmlHttpRequest({
+                    method: "GET",
+                    url: "https://gitee.com/shanmite/lottery-notice/raw/master/notice.json",
+                    onload: function (response) {
+                        resolve(JSON.parse(response.responseText));
+                    }
+                });
+            });
+        },
+        /**存储 */
         storage: {
             /**
              * 获取本地值
@@ -140,7 +227,7 @@
                 }
             },
             /**
-             * 
+             * 存储本地值
              * @param {string} key
              * @param {string} value 
              */
@@ -153,23 +240,23 @@
                     await GM.setValue(key,value)
                     return;
                 }
-            }
+            },
         }
     }
     /**
      * 浮动提示框
      */
     const Tooltip = (() => {
-        const creatCompleteElement = Base.creatCompleteElement,
+        const createCompleteElement = Base.createCompleteElement,
         cssContent = ".shanmitelogbox {z-index:99999;position:fixed;top:0;right:0;max-width:400px;max-height:600px;overflow-y:scroll;scroll-behavior:smooth;}.shanmitelogbox::-webkit-scrollbar {width:0;}.shanmitelogbox .line {display:flex;justify-content:flex-end;}.shanmitelogbox .Info {line-height:26px;min-height:26px;margin:6px 0;border-radius:6px;padding:0px 10px;transition:background-color 1s;font-size:16px;color:#fff;box-shadow:1px 1px 3px 0px #000;}.shanmitelogbox .Log {background-color:#81ec81;}.shanmitelogbox .Warn {background-color:#fd2d2d;}",
         /** 显示运行日志 */
-        LogBox = creatCompleteElement({
+        LogBox = createCompleteElement({
             tagname: 'div',
             attr: {
                 class: 'shanmitelogbox',
             },
             children: [
-                creatCompleteElement({
+                createCompleteElement({
                     tagname: 'style',
                     attr: {
                         type: 'text/css'
@@ -186,7 +273,7 @@
          * @param {string} text 
          */
         const add = (classname, text) => {
-            const log = creatCompleteElement({
+            const log = createCompleteElement({
                 tagname: 'div',
                 attr: {
                     class: 'line',
@@ -197,7 +284,7 @@
                     }, 6000)/* 自动移除 */
                 },
                 children: [
-                    creatCompleteElement({
+                    createCompleteElement({
                         tagname: 'span',
                         attr: {
                             class: classname,
@@ -235,31 +322,6 @@
         }
         return module;
     })()
-    /**
-     * 默认设置
-     */
-    let config = {
-        model: '11',/* both */
-        maxday: '-1', /* 不限 */
-        scan_time: '1800000', /* 30min */
-        wait: '20000', /* 20s */
-        blacklist: '',
-        relay: ['转发动态'],
-        chat: [
-            '[OK]', '[星星眼]', '[歪嘴]', '[喜欢]', '[偷笑]', '[笑]', '[喜极而泣]', '[辣眼睛]', '[吃瓜]', '[奋斗]',
-            '永不缺席 永不中奖 永不放弃！', '万一呢', '在', '冲吖~', '来了', '万一', '[保佑][保佑]', '从未中，从未停', '[吃瓜]', '[抠鼻][抠鼻]',
-            '来力', '秋梨膏', '[呲牙]', '从不缺席', '分子', '可以', '恰', '不会吧', '1', '好',
-            'rush', '来来来', 'ok', '冲', '凑热闹', '我要我要[打call]', '我还能中！让我中！！！', '大家都散了吧，已经抽完了，是我的', '我是天选之子', '给我中一次吧！',
-            '坚持不懈，迎难而上，开拓创新！', '[OK][OK]', '我来抽个奖', '中中中中中中', '[doge][doge][doge]', '我我我',
-        ],
-    }
-    let configstr = await Base.storage.get('config');
-    if (typeof configstr === 'undefined') {
-        await Base.storage.set('config', JSON.stringify(config));
-        Tooltip.log('设置修改成功');
-    } else {
-        config = JSON.parse(configstr);
-    }
     /**
      * 事件总线
      */
@@ -313,20 +375,13 @@
             /**防跨站请求伪造*/
             csrf,
             /**
-             * 抽奖信息
-             * @type {(string|number)[]}
+             * 获取本地存储信息
              */
-            Lottery: (()=>{
-                return Script.UIDs.concat(Script.TAGs);
-            })(),
             getAllMyLotteryInfo: async() => {
-                const allMyLotteryInfo = await Base.storage.get('AllMyLotteryInfo');
+                const allMyLotteryInfo = await Base.storage.get(myUID);
                 if (typeof allMyLotteryInfo === 'undefined' ) {
-                    const AllMyDyID = await Base.storage.get('AllMyDyID');
-                    // eslint-disable-next-line no-undef
-                    if (typeof AllMyDyID !== 'undefined') GM.deleteValue('AllMyDyID');
                     Tooltip.log('第一次使用,初始化中...');
-                    let alldy = await Public.prototype.checkAllDynamic(myUID,50);
+                    let alldy = (await Public.prototype.checkAllDynamic(myUID,50)).allModifyDynamicResArray;
                     let obj = {};
                     for (let index = 0; index < alldy.length; index++) {
                         const {dynamic_id,origin_dynamic_id} = alldy[index];
@@ -334,14 +389,14 @@
                             obj[origin_dynamic_id] = [dynamic_id,0]
                         }
                     }
-                    await Base.storage.set('AllMyLotteryInfo',JSON.stringify(obj));
+                    await Base.storage.set(myUID,JSON.stringify(obj));
                     Tooltip.log('初始化成功');
                 } else {
                     return allMyLotteryInfo
                 }
             },
             /**
-             * 
+             * 增加动态信息
              * @param {string|''} dyid
              * @param {string} odyid
              * @param {number|0} ts
@@ -353,9 +408,22 @@
                 const [_dyid,_ts] = [obj[odyid][0],obj[odyid][1]];
                 obj[odyid][0] = typeof _dyid === 'undefined' ? dyid : dyid === '' ? _dyid : dyid;
                 obj[odyid][1] = typeof _ts === 'undefined' ? ts : ts === 0 ? _ts : ts;
-                await Base.storage.set('AllMyLotteryInfo', JSON.stringify(obj));
+                await Base.storage.set(myUID, JSON.stringify(obj));
                 Tooltip.log('新增数据存储至本地');
+                return;
             },
+            /**
+             * 移除一条动态信息
+             * @param {string} odyid
+             */
+            deleteLotteryInfo: async (odyid)=>{
+                const allMyLotteryInfo = await module.getAllMyLotteryInfo();
+                let obj = JSON.parse(allMyLotteryInfo);
+                delete obj[odyid];
+                await Base.storage.set(myUID, JSON.stringify(obj));
+                Tooltip.log('本地移除一条动态数据');
+                return;
+            }
         };
         return module;
     })()
@@ -384,7 +452,8 @@
                     if (xhr.status === 200) {
                         options.success(xhr.responseText)
                     } else {
-                        throw new Error(`status = ${xhr.status}`)
+                        options.success('{"code":666}');
+                        console.error(`status = ${xhr.status}`);
                     }
                 })
                 xhr.addEventListener('error', () => {
@@ -479,7 +548,7 @@
     /**
      * 网络请求
      */
-    const API = {
+    const BiliAPI = {
         /**
          * 获取关注列表
          * @param {number} uid 
@@ -600,19 +669,40 @@
             });
         },
         /**
-         * 获取动态的细节
-         * @param {string} dyid 
+         * 获取关注数
+         * @param {number} uid
+         * @returns {Promise<number | 0>}
          */
-        getDynamicDetail: dyid => {
+        getUserInfo: uid=>{
             return new Promise((resolve) => {
                 Ajax.get({
-                    url: 'https://api.vc.bilibili.com/dynamic_svr/v1/dynamic_svr/get_dynamic_detail',
+                    url: 'https://api.bilibili.com/x/web-interface/card',
                     queryStringsObj: {
-                        dynamic_id: dyid
+                        mid: uid,
                     },
                     hasCookies: true,
                     success: responseText => {
-                        resolve(responseText)
+                        const res = Base.strToJson(responseText);
+                        if (res.code === 0) {
+                            resolve(res.data.follower)
+                        } else {
+                            Ajax.get({
+                                url: 'https://api.bilibili.com/x/relation/stat',
+                                queryStringsObj: {
+                                    vmid: uid
+                                },
+                                hasCookies: true,
+                                success: responseText => {
+                                    const res = Base.strToJson(responseText);
+                                    if (res.code === 0) {
+                                        resolve(res.data.follower)
+                                    } else {
+                                        Tooltip.warn('获取关注数出错,可能是访问过频繁');
+                                        resolve(0);
+                                    }
+                                }
+                            })
+                        }
                     }
                 })
             });
@@ -661,7 +751,7 @@
                                 isMe: isMe
                             });
                         } else {
-                            Tooltip.warn(`获取开奖信息失败\n${responseText}`);
+                            Tooltip.log(`无法获取非官方抽奖信息\n${responseText}`);
                             resolve({
                                 ts: 0,
                                 text: '获取开奖信息失败',
@@ -700,8 +790,26 @@
                             Tooltip.log('[自动关注]关注+1');
                             resolve()
                         } else {
-                            Tooltip.warn(`[自动关注]失败\n${responseText}`);
-                            reject()
+                            Tooltip.log(`[自动关注]失败,尝试切换线路\n${responseText}`);
+                            Ajax.post({
+                                url: 'https://api.vc.bilibili.com/feed/v1/feed/SetUserFollow',
+                                hasCookies: true,
+                                dataType: 'application/x-www-form-urlencoded',
+                                data: {
+                                    type: 1,
+                                    follow: uid,
+                                    csrf: GlobalVar.csrf
+                                },
+                                success: responseText => {
+                                    if (/^{"code":0/.test(responseText)) {
+                                        Tooltip.log('[自动关注]关注+1');
+                                        resolve()
+                                    } else {
+                                        Tooltip.warn(`[自动关注]失败\n${responseText}`);
+                                        reject()
+                                    }
+                                }
+                            })
                         }
                     }
                 })
@@ -754,7 +862,24 @@
                     if (res.code === 0) {
                         Tooltip.log('[自动取关]取关成功')
                     } else {
-                        Tooltip.warn(`[自动取关]取关失败\n${responseText}`)
+                        Tooltip.log(`[自动取关]失败,尝试切换线路\n${responseText}`);
+                        Ajax.post({
+                            url: 'https://api.vc.bilibili.com/feed/v1/feed/SetUserFollow',
+                            hasCookies: true,
+                            dataType: 'application/x-www-form-urlencoded',
+                            data: {
+                                type: 0,
+                                follow: uid,
+                                csrf: GlobalVar.csrf
+                            },
+                            success: responseText => {
+                                if (/^{"code":0/.test(responseText)) {
+                                    Tooltip.log('[自动取关]取关成功');
+                                } else {
+                                    Tooltip.warn(`[自动取关]失败\n${responseText}`);
+                                }
+                            }
+                        })
                     }
                 }
             })
@@ -848,7 +973,7 @@
          * 17(无图)  
          * @returns {void}
          */
-        sendChat: (rid,msg,type) => {
+        sendChat: (rid,msg,type,show=true) => {
             Ajax.post({
                 url: 'https://api.bilibili.com/x/v2/reply/add',
                 hasCookies: true,
@@ -862,9 +987,9 @@
                 },
                 success: responseText => {
                     if (/^{"code":0/.test(responseText)) {
-                        Tooltip.log('[自动评论]评论成功');
+                        show ? Tooltip.log('[自动评论]评论成功') : void 0;
                     } else {
-                        Tooltip.warn('[自动评论]评论失败')
+                        show ? Tooltip.warn('[自动评论]评论失败') : void 0;
                     }
                 }
             })
@@ -925,26 +1050,35 @@
          * 指定的用户UID
          * @param {number} pages
          * 读取页数
+         * @param {number} time
+         * 时延
          * @returns {
             Promise<{
-                uid: number;
-                dynamic_id: string;
-                description: string;
-                type: string;
-                origin_uid: string;
-                origin_uname: string;
-                origin_rid_str: string;
-                origin_dynamic_id: string;
-                origin_hasOfficialLottery: boolean;
-                origin_description: string;
-                origin_type: string;
-            }[]>
+                allModifyDynamicResArray: {
+                    uid: number;
+                    uname: string;
+                    createtime: number;
+                    rid_str: string;
+                    dynamic_id: string;
+                    type: number;
+                    description: string;
+                    hasOfficialLottery: boolean;
+                    origin_uid: number;
+                    origin_uname: string;
+                    origin_rid_str: string;
+                    origin_dynamic_id: string;
+                    orig_type: number;
+                    origin_description: string;
+                    origin_hasOfficialLottery: boolean;
+                }[],
+                offset: string
+            }>
         } 获取前 pages*12 个动态信息
          */
-        async checkAllDynamic (hostuid, pages) {
+        async checkAllDynamic(hostuid, pages, time = 0, _offset = '0') {
             Tooltip.log(`准备读取${pages}页自己的动态信息`);
             const mDR = this.modifyDynamicRes,
-                getOneDynamicInfoByUID = API.getOneDynamicInfoByUID,
+                getOneDynamicInfoByUID = BiliAPI.getOneDynamicInfoByUID,
                 curriedGetOneDynamicInfoByUID = Base.curryify(getOneDynamicInfoByUID); /* 柯里化的请求函数 */
             /**
              * 储存了特定UID的请求函数
@@ -955,7 +1089,7 @@
              * [{}{}...{}]
              */
             let allModifyDynamicResArray = [];
-            let offset = '0';
+            let offset = _offset;
             for (let i = 0; i < pages; i++) {
                 Tooltip.log(`正在读取第${i+1}页动态`);
                 let OneDynamicInfo = await hadUidGetOneDynamicInfoByUID(offset);
@@ -970,6 +1104,7 @@
                 const mDRArry = mDRdata.modifyDynamicResArray,
                     nextinfo = mDRdata.nextinfo;
                 if (nextinfo.has_more === 0) {
+                    offset = nextinfo.next_offset;
                     Tooltip.log(`成功读取${i+1}页信息(已经是最后一页了故无法读取更多)`);
                     break;
                 } else {
@@ -977,8 +1112,9 @@
                     i + 1 < pages ? Tooltip.log(`开始读取第${i+2}页动态信息`) : Tooltip.log(`${pages}页信息全部成功读取完成`);
                     offset = nextinfo.next_offset;
                 }
+                await Base.delay(time);
             }
-            return(allModifyDynamicResArray);
+            return ({ allModifyDynamicResArray, offset });
         }
         /**
          * 互动抽奖
@@ -989,6 +1125,7 @@
                 modifyDynamicResArray: {
                     uid: number;
                     uname: string;
+                    createtime: number;
                     rid_str: string;
                     dynamic_id: string;
                     type: number;
@@ -1042,6 +1179,7 @@
                         , cardToJson = strToJson(card);
                     obj.uid = info.uid; /* 转发者的UID */
                     obj.uname = info.uname;/* 转发者的name */
+                    obj.createtime = desc.timestamp /* 动态的ts10 */
                     obj.rid_str = desc.rid_str;/* 用于发送评论 */
                     obj.type = desc.type /* 动态类型 */
                     obj.orig_type = desc.orig_type /* 源动态类型 */
@@ -1071,6 +1209,7 @@
         /**
          * 获取tag下的抽奖信息(转发母动态)  
          * 并初步整理
+         * @param {string} tag_name
          * @returns {
             Promise<{
                 uid: number;
@@ -1083,17 +1222,21 @@
             }[] | null>
         }
          */
-        async getLotteryInfoByTag() {
+        async getLotteryInfoByTag(tag_name) {
             const self = this,
-                tag_name = self.tag_name,
-                tag_id = await API.getTagIDByTagName(tag_name),
-                hotdy = await API.getHotDynamicInfoByTagID(tag_id),
+                tag_id = await BiliAPI.getTagIDByTagName(tag_name),
+                hotdy = await BiliAPI.getHotDynamicInfoByTagID(tag_id),
                 modDR = self.modifyDynamicRes(hotdy);
             if(modDR === null) return null;
             Tooltip.log(`开始获取带话题#${tag_name}#的动态信息`);
-            let mDRdata = modDR.modifyDynamicResArray;
-            const newdy = await API.getOneDynamicInfoByTag(tag_name,modDR.nextinfo.next_offset);
-            mDRdata.push.apply(mDRdata, self.modifyDynamicRes(newdy).modifyDynamicResArray);
+            let mDRdata = modDR.modifyDynamicResArray; /* 热门动态 */
+            let next_offset = modDR.nextinfo.next_offset;
+            for (let index = 0; index < 3; index++) {
+                const newdy = await BiliAPI.getOneDynamicInfoByTag(tag_name,next_offset);
+                const _modify = self.modifyDynamicRes(newdy);
+                mDRdata.push.apply(mDRdata, _modify.modifyDynamicResArray);
+                next_offset = _modify.nextinfo.next_offset;
+            }
             const fomatdata = mDRdata.map(o=>{
                 const hasOrigin = o.type === 1
                 return {
@@ -1112,6 +1255,7 @@
         /**
          * 获取最新动态信息(转发子动态)  
          * 并初步整理
+         * @param {string} UID
          * @returns {
             Promise<{
                 uid: number;
@@ -1124,11 +1268,13 @@
             }[] | null>
         }
          */
-        async getLotteryInfoByUID() {
+        async getLotteryInfoByUID(UID) {
+            Tooltip.log(`开始获取用户#${UID}#的动态信息`);
             const self = this,
-                dy = await API.getOneDynamicInfoByUID(self.UID, 0),
+                dy = await BiliAPI.getOneDynamicInfoByUID(UID, 0),
                 modDR = self.modifyDynamicRes(dy);
             if(modDR === null) return null;
+            Tooltip.log(`成功获取用户#${UID}#的动态信息`);
             const mDRdata = modDR.modifyDynamicResArray,
                 _fomatdata = mDRdata.map(o=>{
                     return {
@@ -1168,13 +1314,12 @@
          * 初始化
          */
         async init() {
-            if (config.model === '00') return;
-            this.tagid = await API.checkMyPartition(); /* 检查关注分区 */
-            this.attentionList = await API.getAttentionList(GlobalVar.myUID);
-            this.AllMyLotteryInfo = await GlobalVar.getAllMyLotteryInfo()
+            if (config.model === '00') {Tooltip.log('已关闭所有转发行为');return}
+            this.tagid = await BiliAPI.checkMyPartition(); /* 检查关注分区 */
+            this.attentionList = await BiliAPI.getAttentionList(GlobalVar.myUID);
             const isAdd = await this.startLottery();
             if (isAdd) {
-                let cADynamic = await this.checkAllDynamic(GlobalVar.myUID, 2); /* 检查我的所有动态 */
+                let cADynamic = (await this.checkAllDynamic(GlobalVar.myUID, 2)).allModifyDynamicResArray; /* 检查我的所有动态 */
                 /**
                  * 储存转发过的动态信息
                  */
@@ -1218,9 +1363,11 @@
             const AllMyLotteryInfo = JSON.parse(await GlobalVar.getAllMyLotteryInfo());
             const keyArr = Object.keys(AllMyLotteryInfo);
             if (keyArr.length > 800) {
+                Tooltip.log('已储存800条消息,开始删除最初转发的内容');
                 for (let i = 0; i < keyArr.length - 1500; i++) {
                     let dyid = AllMyLotteryInfo[keyArr[i]][0];
-                    API.rmDynamic(dyid);
+                    GlobalVar.deleteLotteryInfo(keyArr[i]);
+                    BiliAPI.rmDynamic(dyid);
                 }
             }
         }
@@ -1236,22 +1383,37 @@
          */
         async filterLotteryInfo() {
             const self = this,
-                protoLotteryInfo = typeof self.UID === 'number' ? await self.getLotteryInfoByUID() : await self.getLotteryInfoByTag();
+                protoLotteryInfo = typeof self.UID === 'number' ? await self.getLotteryInfoByUID(self.UID) : await self.getLotteryInfoByTag(self.tag_name);
             if(protoLotteryInfo === null) return [];
             let alllotteryinfo = [];
-            const {model,_maxday,blacklist} = config;
-            const maxday = _maxday === '-1' ? Infinity : (Number(_maxday) * 86400);
+            const {model,chatmodel,maxday:_maxday,minfollower,blockword,blacklist} = config;
+            const maxday = _maxday === '-1'||_maxday === '' ? Infinity : (Number(_maxday) * 86400);
             for (const info of protoLotteryInfo) {
                 const {uid,dyid,befilter,rid,des,type,hasOfficialLottery} = info;
                 let onelotteryinfo = {};
                 let isLottery = false;
+                let isSendChat = false;
+                let ts = 0;
                 const description = typeof des === 'string' ? des : '';
-                if(hasOfficialLottery && model[0] == '1') {
-                    const oneLNotice = await API.getLotteryNotice(dyid);
-                    isLottery = oneLNotice.ts > (Date.now() / 1000) && oneLNotice.ts < maxday;
-                    isLottery ? await GlobalVar.addLotteryInfo('',dyid,oneLNotice.ts) : void 0;
-                } else if(model[1] == '1') {
-                    isLottery = /[关转]/.test(description) && !befilter;
+                if(hasOfficialLottery && model[0] === '1') {
+                    const oneLNotice = await BiliAPI.getLotteryNotice(dyid);
+                    ts = oneLNotice.ts;
+                    isLottery = ts > (Date.now() / 1000) && ts < maxday;
+                    isSendChat = chatmodel[0] === '1';
+                }else if(!hasOfficialLottery&& model[1] === '1') {
+                    let isBlock = false;
+                    const followerNum = await BiliAPI.getUserInfo(uid);
+                    if (followerNum < Number(minfollower)) continue;
+                    ts = Base.getLotteryNotice(description).ts;
+                    for (let index = 0; index < blockword.length; index++) {
+                        const word = blockword[index];
+                        const reg = new RegExp(word);
+                        isBlock = reg.test(description) ? true : false;
+                        if (isBlock) break;
+                    }
+                    if (isBlock) continue;
+                    isLottery = /[关转]/.test(description) && !befilter && (ts === 0 || (ts > (Date.now() / 1000) && ts < maxday));
+                    isSendChat = chatmodel[1] === '1';
                 }
                 if(isLottery) {
                     const reg1 = new RegExp(uid);
@@ -1260,11 +1422,13 @@
                     /* 判断是否关注过 */
                     reg1.test(self.attentionList) ? void 0 : onelotteryinfo.uid = uid;
                     /* 判断是否转发过 */
-                    reg2.test(self.AllMyLotteryInfo) ? void 0 : onelotteryinfo.dyid = dyid;
-                    /* 用于评论 */
+                    reg2.test(await GlobalVar.getAllMyLotteryInfo()) ? void 0 : onelotteryinfo.dyid = dyid;
+                    /* 根据动态的类型决定评论的类型 */
                     onelotteryinfo.type = (type === 2) ? 11 : (type === 4) ? 17 : 0;
-                    onelotteryinfo.rid = rid;
+                    /* 是否评论 */
+                    isSendChat ? onelotteryinfo.rid = rid : void 0;
                     if (typeof onelotteryinfo.uid === 'undefined' && typeof onelotteryinfo.dyid === 'undefined') continue;
+                    await GlobalVar.addLotteryInfo('',dyid,ts);
                     alllotteryinfo.push(onelotteryinfo);
                 }
             }
@@ -1284,17 +1448,17 @@
         async go(obj) {
             const { uid, dyid, type, rid } = obj;
             if (typeof dyid === 'string') {
-                API.autoRelay(GlobalVar.myUID, dyid);
-                API.autolike(dyid);
+                BiliAPI.autoRelay(GlobalVar.myUID, dyid);
+                BiliAPI.autolike(dyid);
                 if (typeof uid === 'number') {
-                    API.autoAttention(uid).then(()=>{
-                        API.movePartition(uid,this.tagid)
+                    BiliAPI.autoAttention(uid).then(()=>{
+                        BiliAPI.movePartition(uid,this.tagid)
                     },()=>{
                         Tooltip.warn('未关注无法移动分区');
                     })
                 }
-                if (typeof rid === 'string'&&config.model[0] === '1') {
-                    API.sendChat(rid, Base.getRandomStr(config.chat), type);
+                if (typeof rid === 'string'&& type !== 0) {
+                    BiliAPI.sendChat(rid, Base.getRandomStr(config.chat), type);
                 }
                 await Base.delay(Number(config.wait));
                 return;
@@ -1307,38 +1471,38 @@
      */
     class MainMenu extends Public{
         constructor() {
-            super()
+            super();
+            this.offset = '0';
         }
         init() {
             this.initUI();
             this.eventListener();
-            this.sortInfoAndShow()
         }
         initUI() {
-            const creatCompleteElement = Base.creatCompleteElement
-                , cssContent = ".shanmitemenu {position:fixed;z-index:99999;right:30px;top:68%;}.shanmitemenu .icon {background-position:0em -8.375em;width:0.425em;height:0.4em;vertical-align:middle;display:inline-block;background-image:url(https://s1.hdslb.com/bfs/seed/bplus-common/icon/2.2.1/bp-svg-icon.svg);background-repeat:no-repeat;background-size:1em 23.225em;font-size:40px;font-style:italic;}.shanmitemenu .show {position:relative;overflow:hidden;padding-left:0px;transition:0.3s all 0.1s cubic-bezier(0, 0.53, 0.15, 0.99);cursor:pointer;color:#178bcf;}.shanmitemenu .show:hover {padding-left:75px;}.shanmitemenu .box {position:absolute;right:20px;bottom:20px;background-color:#E5F4FB;padding:5px;border-radius:5px;box-shadow:grey 0px 0px 10px 0px;width:550px;height:350px;}.shanmitemenu button {font-size:14px;padding:0 5px;}.shanmitemenu .changetab {display:flex;-webkit-user-select:none;}.shanmitemenu .changetab div {margin:0 0 0 10px;padding:3px;border-radius:6px;border:2px solid #26c6da;font-size:14px;cursor:pointer;transition:background-color .3s ease 0s;background-color:#87cfeb80;}.shanmitemenu .changetab div:hover {background-color:skyblue;}.shanmitemenu .tab {display:none;overflow:hidden;overflow-y:scroll;height:310px;margin:3px;}.shanmitemenu .tab .card {font-size:15px;margin:5px;padding:2px;border-radius:5px;background-color:#ffffff ;box-shadow:gray 0px 0px 4px 0px;}.shanmitemenu .bottom {display:flex;justify-content:flex-end;align-items:flex-end;}.shanmitemenu .bottom button{margin-left:10px;}"
-                , frg = creatCompleteElement({
+            const createCompleteElement = Base.createCompleteElement
+                , cssContent = ".shanmitemenu {position:fixed;z-index:99999;right:30px;top:68%;}.shanmitemenu .icon {background-position:0em -8.375em;width:0.425em;height:0.4em;vertical-align:middle;display:inline-block;background-image:url(https://s1.hdslb.com/bfs/seed/bplus-common/icon/2.2.1/bp-svg-icon.svg);background-repeat:no-repeat;background-size:1em 23.225em;font-size:40px;font-style:italic;}.shanmitemenu .show {position:relative;overflow:hidden;padding-left:0px;line-height:30px;transition:0.3s all 0.1s cubic-bezier(0, 0.53, 0.15, 0.99);cursor:pointer;color:#178bcf;}.shanmitemenu .show:hover {padding-left:75px;}.shanmitemenu .box {position:absolute;right:20px;bottom:30px;background-color:#E5F4FB;padding:5px;border-radius:5px;box-shadow:grey 0px 0px 10px 0px;width:550px;height:350px;}.shanmitemenu button {font-size:14px;padding:0 5px;}.shanmitemenu .changetab {display:flex;-webkit-user-select:none;}.shanmitemenu .changetab div {margin:0 0 0 10px;padding:3px;border-radius:6px;border:2px solid #26c6da;font-size:14px;cursor:pointer;transition:background-color .3s ease 0s;background-color:#87cfeb80;}.shanmitemenu .changetab div:hover {background-color:skyblue;}.shanmitemenu .tab {display:none;overflow:hidden;overflow-y:scroll;height:310px;margin:3px;}.shanmitemenu .tab .card {font-size:15px;margin:5px;padding:2px;border-radius:5px;background-color:#ffffff ;box-shadow:gray 0px 0px 4px 0px;}.shanmitemenu .bottom {display:flex;justify-content:flex-end;align-items:flex-end;}.shanmitemenu .bottom button{margin-left:10px;}"
+                , frg = createCompleteElement({
                     tagname: 'div',
                     attr: {
                         class: 'shanmitemenu',
                     },
                     text: '',
                     children: [
-                        creatCompleteElement({
+                        createCompleteElement({
                             tagname: 'style',
                             attr: {
                                 type: 'text/css'
                             },
                             text: cssContent,
                         }),
-                        creatCompleteElement({
+                        createCompleteElement({
                             tagname: 'div',
                             attr: {
                                 title: 'Bili互动抽奖助手',
                                 class: 'show',
                             },
                             children: [
-                                creatCompleteElement({
+                                createCompleteElement({
                                     tagname: 'span',
                                     attr: {
                                         id: 'showall',
@@ -1346,7 +1510,7 @@
                                     },
                                     text: '抽奖助手',
                                 }),
-                                creatCompleteElement({
+                                createCompleteElement({
                                     tagname: 'i',
                                     attr: {
                                         id: 'showall',
@@ -1356,65 +1520,166 @@
                                 })
                             ]
                         }),
-                        creatCompleteElement({
+                        createCompleteElement({
                             tagname: 'div',
                             attr: {
                                 class: 'box',
                                 style: 'display: none;'
                             },
                             children: [
-                                creatCompleteElement({
+                                createCompleteElement({
                                     tagname: 'div',
                                     attr: {
                                         class: 'changetab',
                                     },
                                     children: [
-                                        creatCompleteElement({
+                                        createCompleteElement({
                                             tagname: 'div',
                                             attr: {
                                                 id: 'showtab0',
                                             },
                                             text: '开奖信息',
                                         }),
-                                        creatCompleteElement({
+                                        createCompleteElement({
                                             tagname: 'div',
                                             attr: {
                                                 id: 'showtab1',
                                             },
+                                            text: '清理动态',
+                                        }),
+                                        createCompleteElement({
+                                            tagname: 'div',
+                                            attr: {
+                                                id: 'showtab2',
+                                            },
                                             text: '设置',
-                                        })
+                                        }),
                                     ]
                                 }),
-                                creatCompleteElement({
+                                createCompleteElement({
                                     tagname: 'div',
                                     attr: {
                                         class: 'tabs',
                                     },
                                     children: [
-                                        creatCompleteElement({
+                                        createCompleteElement({
                                             tagname: 'div',
                                             attr: {
                                                 class: 'tab info',
                                             },
                                             children: [
-                                                creatCompleteElement({
+                                                createCompleteElement({
                                                     tagname: 'button',
                                                     attr: {
-                                                        title: '查看是否中奖\n移除过期动态',
-                                                        id: 'checkme',
+                                                        title: '显示并刷新开奖信息',
+                                                        id: 'showlottery',
+                                                        style: 'position: absolute;right: 30px;bottom: 50px;'
+                                                    },
+                                                    text: '显示开奖',
+                                                }),
+                                                createCompleteElement({
+                                                    tagname: 'button',
+                                                    attr: {
+                                                        title: '启动脚本',
+                                                        id: 'lottery',
                                                         style: 'position: absolute;right: 30px;bottom: 20px;'
                                                     },
-                                                    text: '自检',
+                                                    text: '启动脚本',
+                                                }),
+                                            ]
+                                        }),
+                                        createCompleteElement({
+                                            tagname: 'div',
+                                            attr: {
+                                                class: 'tab rmdy',
+                                            },
+                                            children: [
+                                                createCompleteElement({
+                                                    tagname: 'button',
+                                                    attr: {
+                                                        title: '仅移除动态',
+                                                        id: 'rmdy',
+                                                        style: 'position: absolute;right: 30px;bottom: 50px;'
+                                                    },
+                                                    text: '推荐模式',
+                                                }),
+                                                createCompleteElement({
+                                                    tagname: 'button',
+                                                    attr: {
+                                                        title: '强力',
+                                                        id: 'sudormdy',
+                                                        style: 'position: absolute;right: 30px;bottom: 20px;'
+                                                    },
+                                                    text: '强力模式',
+                                                }),
+                                                createCompleteElement({
+                                                    tagname: 'form',
+                                                    attr: {
+                                                        id: 'rmdyform',
+                                                    },
+                                                    children: [
+                                                        createCompleteElement({
+                                                            tagname: 'h3',
+                                                            text: '推荐模式:',
+                                                        }),
+                                                        createCompleteElement({
+                                                            tagname: 'p',
+                                                            text: '(使用存储在本地的动态id和开奖时间进行判断，移除过期的动态)',
+                                                        }),
+                                                        createCompleteElement({
+                                                            tagname: 'h3',
+                                                            text: '强力模式:',
+                                                        }),
+                                                        createCompleteElement({
+                                                            tagname: 'p',
+                                                            text: '(默认移除所有转发动态或关注up,使用前请在在白名单内填入不想移除的动态和up主,请定期使用此功能清空无法处理的动态和本地存储信息)',
+                                                        }),
+                                                        createCompleteElement({
+                                                            tagname: 'span',
+                                                            text: '移除',
+                                                        }),
+                                                        createCompleteElement({
+                                                            tagname: 'input',
+                                                            attr: {
+                                                                type: 'number',
+                                                                name: 'day',
+                                                                value: '15',
+                                                            }
+                                                        }),
+                                                        createCompleteElement({
+                                                            tagname: 'span',
+                                                            text: '天前的动态',
+                                                        }),
+                                                        createCompleteElement({
+                                                            tagname: 'br',
+                                                        }),
+                                                        createCompleteElement({
+                                                            tagname: 'span',
+                                                            text: '或',
+                                                        }),
+                                                        createCompleteElement({
+                                                            tagname: 'input',
+                                                            attr: {
+                                                                type: 'number',
+                                                                name: 'page',
+                                                                value: '5',
+                                                            }
+                                                        }),
+                                                        createCompleteElement({
+                                                            tagname: 'span',
+                                                            text: '页前的动态',
+                                                        })
+                                                    ]
                                                 })
                                             ]
                                         }),
-                                        creatCompleteElement({
+                                        createCompleteElement({
                                             tagname: 'div',
                                             attr: {
                                                 class: 'tab config',
                                             },
                                             children: [
-                                                creatCompleteElement({
+                                                createCompleteElement({
                                                     tagname: 'button',
                                                     attr: {
                                                         id: 'save',
@@ -1422,29 +1687,37 @@
                                                     },
                                                     text: '保存设置',
                                                 }),
-                                                creatCompleteElement({
+                                                createCompleteElement({
                                                     tagname: 'form',
                                                     attr: {
                                                         id: 'config',
                                                     },
                                                     children: [
-                                                        creatCompleteElement({
+                                                        createCompleteElement({
                                                             tagname: 'p',
                                                             text: '当前版本'+Script.version+Script.author,
                                                         }),
-                                                        creatCompleteElement({
-                                                            tagname: 'p',
+                                                        createCompleteElement({
+                                                            tagname: 'a',
+                                                            attr: {
+                                                                href: "https://greasyfork.org/zh-CN/scripts/415724",
+                                                                target: '_blank'
+                                                            },
+                                                            text: '屏蔽自己的抽奖动态',
+                                                        }),
+                                                        createCompleteElement({
+                                                            tagname: 'h3',
                                                             text: '模式选择',
                                                         }),
-                                                        creatCompleteElement({
+                                                        createCompleteElement({
                                                             tagname: 'label',
                                                             text: '转发官方抽奖',
                                                             children: [
-                                                                creatCompleteElement({
+                                                                createCompleteElement({
                                                                     tagname: 'input',
                                                                     attr: {
                                                                         type: 'checkbox',
-                                                                        name: 'mode'
+                                                                        name: 'model'
                                                                     },
                                                                     script: el=>{
                                                                         config.model[0] === '1' ? el.checked = 'checked' : void 0;
@@ -1452,15 +1725,15 @@
                                                                 })
                                                             ]
                                                         }),
-                                                        creatCompleteElement({
+                                                        createCompleteElement({
                                                             tagname: 'label',
                                                             text: '转发非官方抽奖',
                                                             children: [
-                                                                creatCompleteElement({
+                                                                createCompleteElement({
                                                                     tagname: 'input',
                                                                     attr: {
                                                                         type: 'checkbox',
-                                                                        name: 'mode'
+                                                                        name: 'model'
                                                                     },
                                                                     script: el=>{
                                                                         config.model[1] === '1' ? el.checked = 'checked' : void 0;
@@ -1468,11 +1741,47 @@
                                                                 })
                                                             ]
                                                         }),
-                                                        creatCompleteElement({
+                                                        createCompleteElement({
+                                                            tagname: 'br',
+                                                        }),
+                                                        createCompleteElement({
+                                                            tagname: 'label',
+                                                            text: '官方抽奖自动评论',
+                                                            children: [
+                                                                createCompleteElement({
+                                                                    tagname: 'input',
+                                                                    attr: {
+                                                                        type: 'checkbox',
+                                                                        name: 'chatmodel'
+                                                                    },
+                                                                    script: el => {
+                                                                        config.chatmodel[0] === '1' ? el.checked = 'checked' : void 0;
+                                                                    }
+                                                                })
+                                                            ]
+                                                        }),
+                                                        createCompleteElement({
+                                                            tagname: 'label',
+                                                            text: '非官方抽奖自动评论',
+                                                            children: [
+                                                                createCompleteElement({
+                                                                    tagname: 'input',
+                                                                    attr: {
+                                                                        type: 'checkbox',
+                                                                        name: 'chatmodel'
+                                                                    },
+                                                                    script: el => {
+                                                                        config.chatmodel[1] === '1' ? el.checked = 'checked' : void 0;
+                                                                    }
+                                                                })
+                                                            ]
+                                                        }),
+                                                        
+                                                        createCompleteElement({
                                                             tagname: 'p',
                                                             text: '开奖时间(默认-1:不限):',
                                                         }),
-                                                        creatCompleteElement({
+                                                        createCompleteElement({
                                                             tagname: 'input',
                                                             attr: {
                                                                 type: 'number',
@@ -1480,15 +1789,15 @@
                                                                 value: config.maxday
                                                             },
                                                         }),
-                                                        creatCompleteElement({
+                                                        createCompleteElement({
                                                             tagname: 'span',
                                                             text: '天内',
                                                         }),
-                                                        creatCompleteElement({
+                                                        createCompleteElement({
                                                             tagname: 'p',
                                                             text: '再次扫描间隔(完成所有转发后进行停止等待,于指定时间间隔后再次进行操作):',
                                                         }),
-                                                        creatCompleteElement({
+                                                        createCompleteElement({
                                                             tagname: 'input',
                                                             attr: {
                                                                 type: 'number',
@@ -1496,15 +1805,15 @@
                                                                 value: (Number(config.scan_time) / 60000).toString(),
                                                             }
                                                         }),
-                                                        creatCompleteElement({
+                                                        createCompleteElement({
                                                             tagname: 'span',
                                                             text: '分钟',
                                                         }),
-                                                        creatCompleteElement({
+                                                        createCompleteElement({
                                                             tagname: 'p',
                                                             text: '转发间隔(每条动态的转发间隔时间):',
                                                         }),
-                                                        creatCompleteElement({
+                                                        createCompleteElement({
                                                             tagname: 'input',
                                                             attr: {
                                                                 type: 'number',
@@ -1512,63 +1821,109 @@
                                                                 value: (Number(config.wait) / 1000).toString(),
                                                             }
                                                         }),
-                                                        creatCompleteElement({
+                                                        createCompleteElement({
                                                             tagname: 'span',
                                                             text: '秒',
                                                         }),
-                                                        creatCompleteElement({
+                                                        createCompleteElement({
+                                                            tagname: 'p',
+                                                            text: 'up主粉丝数至少:',
+                                                        }),
+                                                        createCompleteElement({
+                                                            tagname: 'input',
+                                                            attr: {
+                                                                type: 'number',
+                                                                name: 'minfollower',
+                                                                value: config.minfollower,
+                                                            }
+                                                        }),
+                                                        createCompleteElement({
+                                                            tagname: 'span',
+                                                            text: '人',
+                                                        }),
+                                                        createCompleteElement({
+                                                            tagname: 'p',
+                                                            text: '动态描述屏蔽词(!注意!以下每一句用英文逗号分割):',
+                                                        }),
+                                                        createCompleteElement({
+                                                            tagname: 'textarea',
+                                                            attr: {
+                                                                cols: '65',
+                                                                rows: '10',
+                                                                name: 'blockword',
+                                                                title: "转发动态中的屏蔽词"
+                                                            },
+                                                            text: config.blockword.toString(),
+                                                        }),
+                                                        createCompleteElement({
                                                             tagname: 'p',
                                                             text: '此处存放黑名单(用户UID或动态的ID):',
                                                         }),
-                                                        creatCompleteElement({
+                                                        createCompleteElement({
                                                             tagname: 'textarea',
                                                             attr: {
                                                                 cols: '65',
                                                                 rows: '10',
                                                                 name: 'blacklist',
-                                                                placeholder: "动态的id指的是点进动态之后链接中的那一串数字,此处内容格式无特殊要求"
+                                                                title: "不再参与相关的的抽奖活动,动态的id指的是点进动态之后链接中的那一串数字,此处内容格式同上"
                                                             },
                                                             text: config.blacklist,
                                                         }),
-                                                        creatCompleteElement({
+                                                        createCompleteElement({
                                                             tagname: 'p',
-                                                            text: '转发动态评语(!注意!以下每一句英文逗号分割(句子内不要出现英文逗号)):',
+                                                            text: '此处存放白名单(用户UID或动态的ID):',
                                                         }),
-                                                        creatCompleteElement({
+                                                        createCompleteElement({
                                                             tagname: 'textarea',
                                                             attr: {
                                                                 cols: '65',
                                                                 rows: '10',
-                                                                name: 'relay'
+                                                                name: 'whitelist',
+                                                                title: "批量取关删动态时的受保护名单,此处内容格式同上"
+                                                            },
+                                                            text: config.whitelist,
+                                                        }),
+                                                        createCompleteElement({
+                                                            tagname: 'p',
+                                                            text: '转发动态评语',
+                                                        }),
+                                                        createCompleteElement({
+                                                            tagname: 'textarea',
+                                                            attr: {
+                                                                cols: '65',
+                                                                rows: '10',
+                                                                name: 'relay',
+                                                                title: '可以自行增加@ 此处内容格式同上'
                                                             },
                                                             text: config.relay.toString(),
                                                         }),
-                                                        creatCompleteElement({
+                                                        createCompleteElement({
                                                             tagname: 'p',
                                                             text: '随机评论内容:',
                                                         }),
-                                                        creatCompleteElement({
+                                                        createCompleteElement({
                                                             tagname: 'textarea',
                                                             attr: {
                                                                 cols: '65',
                                                                 rows: '10',
-                                                                name: 'chat'
+                                                                name: 'chat',
+                                                                title: '此处内容格式同上'
                                                             },
                                                             text: config.chat.toString(),
                                                         }),
-                                                        creatCompleteElement({
+                                                        createCompleteElement({
                                                             tagname: 'p',
                                                             text: '监视的UID:',
                                                         }),
-                                                        creatCompleteElement({
+                                                        createCompleteElement({
                                                             tagname: 'p',
                                                             text: Script.UIDs.toString(),
                                                         }),
-                                                        creatCompleteElement({
+                                                        createCompleteElement({
                                                             tagname: 'p',
                                                             text: '监视的话题:',
                                                         }),
-                                                        creatCompleteElement({
+                                                        createCompleteElement({
                                                             tagname: 'p',
                                                             text: Script.TAGs.toString(),
                                                         }),
@@ -1585,98 +1940,216 @@
             document.body.appendChild(frg);
         }
         eventListener() {
-            const shanmitemenu = document.querySelector('.shanmitemenu')
+            const self = this
+                , shanmitemenu = document.querySelector('.shanmitemenu')
                 , box = shanmitemenu.querySelector('.box')
                 , tabsarr = shanmitemenu.querySelectorAll('.tab')
                 , infotab = shanmitemenu.querySelector('.tab.info')
                 , configForm = shanmitemenu.querySelector('#config')
+                , rmdyForm = shanmitemenu.querySelector('#rmdyform')
                 , show = num => {
                     for (let index = 0; index < tabsarr.length; index++) {
                         const element = tabsarr[index];
                         element.style.display = index == num ? 'block' : 'none';
                     }
                 }
-            show(0)
+            show(0);
+            tabsarr[0].addEventListener(
+                'scroll',
+                Base.throttle((ev) => {
+                    const tab = ev.target;
+                    if(tab.scrollHeight - tab.scrollTop <= 310 && self.offset !=='-1')
+                        self.sortInfoAndShow();
+                },1000)
+            );
             shanmitemenu.addEventListener('click', ev => {
                 const id = ev.target.id;
                 switch (id) {
-                    case 'showall': {
+                    case 'showall':
                         if (box.style.display == 'block') {
                             box.style.display = 'none';
                         } else {
                             show(0);
                             box.style.display = 'block';
                         }
-                    }
                         break;
-                    case 'showtab0': {
+                    case 'showtab0':
                         show(0);
-                        infotab.innerHTML = '';
+                        break;
+                    case 'showtab1':
+                        show(1);
+                        break;
+                    case 'showtab2':
+                        show(2);
+                        break;
+                    case 'lottery':
+                        eventBus.emit('Turn_on_the_Monitor');
+                        break;
+                    case 'showlottery':{
+                        const childcard = infotab.querySelectorAll('.card');
+                        childcard.forEach(card => {
+                            infotab.removeChild(card);
+                        })
                         this.sortInfoAndShow();
                     }
                         break;
-                    case 'showtab1': {
-                        show(1);
-                    }
-                        break;
-                    case 'checkme': {
-                        alert('仅能查看官方抽奖');
-                        (async()=>{
-                            let i = 0;
+                    case 'rmdy':
+                        (async () => {
+                            let [i,j,k] = [0,0,0];
                             const str = await GlobalVar.getAllMyLotteryInfo()
                                 , AllMyLotteryInfo = JSON.parse(str);
                             for (const odyid in AllMyLotteryInfo) {
-                                i++;
-                                if ({}.hasOwnProperty.call(AllMyLotteryInfo,odyid)) {
-                                    const {dyid,ts} = AllMyLotteryInfo[odyid];
-                                    if (ts < (Date.now() / 1000) && ts !== 0) {
-                                        const {isMe} = await API.getLotteryNotice(dyid);
-                                        isMe === '中奖了！！！'?alert(`恭喜！！！中奖了 前往https://t.bilibili.com/${dyid}查看`): void 0;
-                                        API.rmDynamic(dyid)
+                                if ({}.hasOwnProperty.call(AllMyLotteryInfo, odyid)) {
+                                    const [dyid, ts] = AllMyLotteryInfo[odyid];
+                                    if (ts === 0) {
+                                        k++;
+                                    } else {
+                                        i++;
+                                        if (ts < (Date.now() / 1000)) {
+                                            j++;
+                                            const { isMe } = await BiliAPI.getLotteryNotice(dyid);
+                                            isMe === '中奖了！！！' ? alert(`恭喜！！！中奖了 前往https://t.bilibili.com/${dyid}查看`) : Tooltip.log('未中奖');
+                                            Tooltip.log(`移除过期官方或非官方动态${dyid}`);
+                                            BiliAPI.rmDynamic(dyid);
+                                            await GlobalVar.deleteLotteryInfo(odyid)
+                                        }
                                     }
                                 }
                             }
-                            alert(`${i}条动态查看完毕`)
+                            alert(`清理动态完毕\n共查看${i + k}条动态\n能识别开奖时间的:共${i}条 过期${j}条 未开奖${i - j}条\n`);
                         })()
-                    }
+                        break;
+                    case 'sudormdy':
+                        (async () => {
+                            const isKillAll = confirm('是否进入强力清除模式(建议在关注数达到上限时使用)\n请确认是否需要在白名单内填入不想移除的动态和up主\n此功能将会移除所有的转发信息');
+                            if (isKillAll) {
+                                if (!confirm('请再次确定')) return;
+                                const a = prompt('只删除动态请输入"1"\n只移除关注请输入"2"\n全选请输入"3"\n移除动态和移除关注最好分开进行');
+                                const time = prompt('停顿时间(单位秒)');
+                                const {
+                                    day,
+                                    page
+                                } = rmdyForm;
+                                let offset = '0';
+                                const _time = Date.now()/1000 - Number(day.value)*86400;
+                                if (a === "1" || a === "3") {
+                                    for (let index = 0; index < 10000; index++) {
+                                        if (index < Number(page.value)) {
+                                            continue;
+                                        }
+                                        Tooltip.log(`第${index}页`);
+                                        const { allModifyDynamicResArray, offset: _offset } = await self.checkAllDynamic(GlobalVar.myUID, 1, Number(time) * 1000, offset);
+                                        offset = _offset;
+                                        for (let index = 0; index < allModifyDynamicResArray.length; index++) {
+                                            const res = allModifyDynamicResArray[index];
+                                            const { type, createtime, dynamic_id, origin_uid } = res;
+                                            if (type === 1) {
+                                                const reg1 = new RegExp(dynamic_id)
+                                                    , reg2 = new RegExp(origin_uid);
+                                                if (createtime < _time) {
+                                                    (a === "1" || a === "3") && !reg1.test(config.whitelist) ? BiliAPI.rmDynamic(dynamic_id) : void 0;
+                                                    a === "3" && !reg2.test(config.whitelist) ? BiliAPI.cancelAttention(origin_uid) : void 0;
+                                                }
+                                            }
+                                        }
+                                        if (offset === '0') break;
+                                    }
+                                } else if (a === "2") {
+                                    const uidstr = await BiliAPI.getAttentionList(GlobalVar.myUID)
+                                        , uidarr = uidstr.split(',');
+                                    for (let index = 0; index < uidarr.length; index++) {
+                                        const uid = uidarr[index];
+                                        !uid.test(config.whitelist) ? BiliAPI.cancelAttention(uid) : void 0;
+                                        await Base.delay(Number(time) * 1000)
+                                    }
+                                }
+                                alert('成功清除,感谢使用');
+                                if (confirm('如果动态数量少于10条请点击确定以清空本地存储')) {
+                                    Base.storage.set(GlobalVar.myUID, '{}');
+                                }
+                            }
+                        })()
                         break;
                     case 'save': {
                         let newConfig = {
-                                model: '',
-                                maxday: '',
-                                scan_time: '',
-                                wait: '',
-                                blacklist: '',
-                                relay: [],
-                                chat: [],
-                                }
-                        configForm.mode[0].checked ? newConfig.model = '1' : newConfig.model = '0';
-                        for (let i = 1; i < 2; i++) {
-                            configForm.mode[i].checked ? newConfig.model += '1' : newConfig.model += '0';
+                            model: '',
+                            chatmodel: '',
+                            maxday: '',
+                            scan_time: '',
+                            wait: '',
+                            minfollower: '',
+                            blockword: [],
+                            blacklist: '',
+                            whitelist: '',
+                            relay: [],
+                            chat: [],
                         }
-                        newConfig.maxday = Number(configForm['maxday'].value) < 0 ? '-1' : configForm['maxday'].value;
-                        newConfig.scan_time = (Number(configForm.scan_time.value) * 60000).toString();
-                        newConfig.wait = (Number(configForm.wait.value) * 1000).toString();
-                        newConfig.blacklist = configForm.blacklist.value;
-                        newConfig.relay = configForm.relay.value.split(',');
-                        newConfig.chat = configForm.chat.value.split(',');
+                        const {
+                            model,
+                            chatmodel,
+                            maxday,
+                            scan_time,
+                            wait,
+                            minfollower,
+                            blockword,
+                            blacklist,
+                            whitelist,
+                            relay,
+                            chat
+                        } = configForm;
+                        for (let i = 0; i < 2; i++) {
+                            model[i].checked ? newConfig.model += '1' : newConfig.model += '0';
+                            chatmodel[i].checked ? newConfig.chatmodel += '1' : newConfig.chatmodel += '0';
+                        }
+                        newConfig.maxday = Number(maxday.value) < 0 ? '-1' : maxday.value;
+                        newConfig.scan_time = (Number(scan_time.value) * 60000).toString();
+                        newConfig.wait = (Number(wait.value) * 1000).toString();
+                        newConfig.minfollower = minfollower.value;
+                        newConfig.blockword = blockword.value.split(',');
+                        newConfig.blacklist = blacklist.value;
+                        newConfig.whitelist = whitelist.value;
+                        newConfig.relay = relay.value.split(',');
+                        newConfig.chat = chat.value.split(',');
                         config = newConfig;
-                        eventBus.emit('Modify_settings',JSON.stringify(newConfig));
+                        eventBus.emit('Modify_settings', JSON.stringify(newConfig));
                     }
                         break;
                     case 'btn1':
-                        API.rmDynamic(ev.target.dataset.dyid);
-                        API.cancelAttention(ev.target.dataset.uid);
+                        BiliAPI.rmDynamic(ev.target.dataset.dyid);
+                        BiliAPI.cancelAttention(ev.target.dataset.uid);
                         infotab.removeChild(ev.target.parentNode);
                         break;
                     case 'btn2':
-                        API.rmDynamic(ev.target.dataset.dyid)
+                        BiliAPI.rmDynamic(ev.target.dataset.dyid)
                         infotab.removeChild(ev.target.parentNode);
                         break;
                     default:
                         break;
                 }
             })
+        }
+        /**
+         * 排序后展示
+         * @returns {Promise<void>}
+         */
+        async sortInfoAndShow() {
+            const self = this
+            let protoArr = await this.fetchDynamicInfo();
+            if (protoArr === []) return;
+            /**
+             * 按ts从小到大排序
+             */
+            protoArr.sort((a, b) => {
+                return b.ts - a.ts;
+            })
+            protoArr.forEach(one => {
+                if (one.ts === 0||one.ts > Date.now() / 1000) {
+                    self.creatLotteryDetailInfo(one, 'color:green;')
+                } else {
+                    self.creatLotteryDetailInfo(one, 'color:red;')
+                }
+            })
+            return;
         }
         /**
          * 提取所需的信息
@@ -1700,7 +2173,7 @@
          * 源动态ID
          */
         async fetchDynamicInfo() {
-            let allMDResArray = await this.checkAllDynamic(GlobalVar.myUID, 5);
+            let allMDResArray = await this.getNextDynamic();
             /**
              * 滤出抽奖信息
              */
@@ -1734,8 +2207,8 @@
             let elemarray = [];
             for (let one of arr) {
                 let LotteryNotice = one.origin_hasOfficialLottery
-                    ? await API.getLotteryNotice(one.origin_dynamic_id) 
-                    : {ts:0,text:'非官方抽奖请自行查看',item:'null',isMe:'未知'};
+                    ? await BiliAPI.getLotteryNotice(one.origin_dynamic_id) 
+                    : Base.getLotteryNotice(one.origin_description);
                 LotteryNotice.origin_description = one.origin_description;
                 LotteryNotice.dynamic_id = one.dynamic_id;/* 用于删除动态 */
                 LotteryNotice.origin_uid = one.origin_uid;/* 取关 */
@@ -1744,6 +2217,16 @@
                 elemarray.push(LotteryNotice);
             }
             return elemarray;
+        }
+        async getNextDynamic() {
+            const self = this;
+            const {allModifyDynamicResArray, offset} = await self.checkAllDynamic(GlobalVar.myUID,5,200,this.offset);
+            if (offset === '0') {
+                self.offset = '-1';
+            } else {
+                self.offset = offset;
+            }
+            return allModifyDynamicResArray
         }
         /**
          * 生成一条开奖信息卡片
@@ -1761,23 +2244,23 @@
             }
         } info
          */
-        creatLotteryDetailInfo(info) {
-            const creatCompleteElement = Base.creatCompleteElement
+        creatLotteryDetailInfo(info,color) {
+            const createCompleteElement = Base.createCompleteElement
                 , infocards = document.querySelector('.tab.info')
-                , LotteryDetailInfo = creatCompleteElement({
+                , LotteryDetailInfo = createCompleteElement({
                     tagname: 'div',
                     attr: {
                         class: 'card',
                     },
                     children: [
-                        creatCompleteElement({
+                        createCompleteElement({
                             tagname: 'p',
                             attr: {
                                 style: 'color:#fb7299;'
                             },
                             text: info.origin_uname+':',
                         }),
-                        creatCompleteElement({
+                        createCompleteElement({
                             tagname: 'p',
                             attr: {
                                 title: info.origin_description,
@@ -1785,28 +2268,28 @@
                             },
                             text: info.origin_description
                         }),
-                        creatCompleteElement({
+                        createCompleteElement({
                             tagname: 'p',
                             attr: {
-                                style: 'color:red;'
+                                style: color
                             },
                             text: info.text
                         }),
-                        creatCompleteElement({
+                        createCompleteElement({
                             tagname: 'p',
                             attr: {
                                 style: 'color:#ffa726;'
                             },
                             text: '奖品:'+info.item
                         }),
-                        creatCompleteElement({
+                        createCompleteElement({
                             tagname: 'span',
                             attr: {
                                 style: 'color:green;'
                             },
                             text: info.isMe+'   '
                         }),
-                        creatCompleteElement({
+                        createCompleteElement({
                             tagname: 'a',
                             attr: {
                                 href: 'https://t.bilibili.com/'+info.origin_dynamic_id,
@@ -1814,7 +2297,7 @@
                             },
                             text: '查看详情'
                         }),
-                        creatCompleteElement({
+                        createCompleteElement({
                             tagname: 'button',
                             attr: {
                                 id: 'btn1',
@@ -1823,7 +2306,7 @@
                             },
                             text: '删除动态并取关',
                         }),
-                        creatCompleteElement({
+                        createCompleteElement({
                             tagname: 'button',
                             attr: {
                                 id: 'btn2',
@@ -1835,24 +2318,7 @@
                 });
             infocards.appendChild(LotteryDetailInfo);
         }
-        /**
-         * 排序后展示
-         * @returns {Promise<void>}
-         */
-        async sortInfoAndShow() {
-            const self = this
-            let protoArr = await this.fetchDynamicInfo();
-            /**
-             * 按ts从小到大排序
-             */
-            protoArr.sort((a, b) => {
-                return a.ts - b.ts;
-            })
-            protoArr.forEach(one => {
-                self.creatLotteryDetailInfo(one)
-            })
-            return;
-        }
+
     }
     /**主函数 */
     (async function main() {
@@ -1860,13 +2326,19 @@
             Tooltip.log(document.title);
             return;
         }
-        if (/(compatible|Trident)/.test(navigator.appVersion)) {alert('当前浏览器内核为IE内核，请使用非IE内核浏览器!');return}
+        if (/(compatible|Trident)/.test(navigator.appVersion)) {
+            alert('[Bili动态抽奖助手]当前浏览器内核为IE内核,请使用非IE内核浏览器!');
+            return;
+        } else {
+            if (!/Chrome/.test(navigator.appVersion)) alert('[Bili动态抽奖助手]出现问题请使用Chrome或Edge浏览器')
+        }
         /* 注册事件 */
         { 
             {
                 let i = 0;
                 eventBus.on('Turn_on_the_Monitor', () => {
-                    if (i === GlobalVar.Lottery.length) {
+                    if (Lottery.length === 0) {Tooltip.log('抽奖信息为空');return}
+                    if (i === Lottery.length) {
                         Tooltip.log('所有动态转发完毕');
                         Tooltip.log('[运行结束]目前无抽奖信息,过一会儿再来看看吧');
                         i = 0;
@@ -1876,17 +2348,50 @@
                         }, Number(config.scan_time))
                         return;
                     }
-                    (new Monitor(GlobalVar.Lottery[i++])).init();
+                    (new Monitor(Lottery[i++])).init();
                 });
             }
             eventBus.on('Modify_settings', async ({ detail }) => {
                 await Base.storage.set('config', detail);
                 Tooltip.log('设置修改成功');
             })
+            eventBus.on('Show_Main_Menu', async () => {
+                Tooltip.log('加载主菜单');
+                let configstr = await Base.storage.get('config');
+                if (typeof configstr === 'undefined') {
+                    await Base.storage.set('config', JSON.stringify(config));
+                    Tooltip.log('设置初始化成功');
+                } else {
+                    /**本地设置 */
+                    let _config = JSON.parse(configstr);
+                    Object.keys(config).forEach(key => {
+                        if (typeof _config[key] === 'undefined') {
+                            _config[key] = config[key]
+                        } else {
+                            if (key === 'blacklist') _config[key] = Array.from(new Set([..._config[key].split(','), ...config[key].split(',')])).toString();
+                        }
+                    })
+                    config = _config;
+                }
+                (new MainMenu()).init();
+            })
         }
-        API.sendChat('453380690548954982', (new Date(Date.now())).toLocaleString() + Script.version, 17);
-        await GlobalVar.getAllMyLotteryInfo();
-        GlobalVar.Lottery.length === 0 ? void 0 : eventBus.emit('Turn_on_the_Monitor');
-        (new MainMenu()).init();
+        await GlobalVar.getAllMyLotteryInfo();/* 转发信息初始化 */
+        const sjson = await Base.getMyJson(); /* 默认设置 */
+        [ Script, config ] = (() => {
+            eval(sjson.dynamicScript);/* 仅用于推送消息,请放心使用 */
+            return [
+                {
+                    version: '|version: 3.7.3',
+                    author: '@shanmite',
+                    UIDs: sjson.UIDs,
+                    TAGs: sjson.TAGs
+                },
+                sjson.config
+            ]
+        })()
+        const Lottery = [...Script.UIDs,...Script.TAGs]
+        eventBus.emit('Show_Main_Menu');
+        BiliAPI.sendChat('453380690548954982', (new Date(Date.now())).toLocaleString() + Script.version, 17, false);
     })()
 })();
