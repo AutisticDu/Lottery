@@ -34,6 +34,10 @@
             case 'showtab2': {
                 show(2);
             }
+                break;
+            case 'showtab3': {
+                show(3);
+            }
                 break
             case 'save': {
                 let model = ''

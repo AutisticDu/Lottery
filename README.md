@@ -22,8 +22,8 @@
 【自动】评论动态  
 【自动】转发动态  
 【自动】展示开奖信息  
-![效果图1](https://ftp.bmp.ovh/imgs/2020/11/aa295603443b0db5.png)
-![效果图2](https://ftp.bmp.ovh/imgs/2020/11/6dca018f6a52bb4f.png)
+![效果图1](https://i.bmp.ovh/imgs/2020/11/a4f0545fed7d895b.png)
+![效果图2](https://i.bmp.ovh/imgs/2020/11/1f274eef0016f2c3.png)
 ## 完善
 如有问题请提交到[反馈](https://greasyfork.org/zh-CN/scripts/412468-bili%E5%8A%A8%E6%80%81%E6%8A%BD%E5%A5%96%E5%8A%A9%E6%89%8B/feedback)通知作者进行脚本更新,参与脚本的完善
 ## 声明

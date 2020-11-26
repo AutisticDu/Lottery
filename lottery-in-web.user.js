@@ -2,7 +2,7 @@
 // @name         Bili动态抽奖助手
 // @namespace    http://tampermonkey.net/
 // @updateURL    https://gitee.com/shanmite/Lottery/raw/master/lottery-in-web.user.js
-// @version      3.7.4
+// @version      3.7.5
 // @description  自动参与B站"关注转发抽奖"活动
 // @author       shanmite
 // @include      /^https?:\/\/space\.bilibili\.com/[0-9]*/
@@ -15,7 +15,7 @@
 // ==/UserScript==
 (function () {
     "use strict"
-    let [Script, config ] = [{},{}];
+    let [Script, config ,errorbar] = [{},{},{}];
     /**
      * 基础工具
      */
@@ -770,7 +770,7 @@
             });
         },
         /**
-         * 之前不检查是否重复关注
+         * 之前应检查是否重复关注
          * 自动关注
          * 并转移分组
          * @param {Number} uid
@@ -811,7 +811,15 @@
                                         Tooltip.log('[自动关注]关注+1');
                                         resolve()
                                     } else {
-                                        Tooltip.warn(`[自动关注]失败\n${responseText}`);
+                                        Tooltip.warn(`[自动关注]失败,请在"错误信息"处手动关注\n${responseText}`);
+                                        errorbar.appendChild(Base.createCompleteElement({
+                                            tagname: 'a',
+                                            attr: {
+                                                href: `https://space.bilibili.com/${uid}`,
+                                                target: "_blank"
+                                            },
+                                            text: `未成功关注的up|uid:${uid}`,
+                                        }))
                                         reject()
                                     }
                                 }
@@ -845,6 +853,40 @@
                     }
                 }
             })
+        },
+        /**
+         * 获取一个分区中50个的id
+         * @param {number} tagid
+         * @param {number} n 1->
+         * @returns {Promise<number[]>}
+         */
+        getPartitionUID: (tagid,n) =>{
+            return new Promise((resolve) => {
+                Ajax.get({
+                    url: 'https://api.bilibili.com/x/relation/tag',
+                    queryStringsObj: {
+                        mid: GlobalVar.myUID,
+                        tagid: tagid,
+                        pn: n,
+                        ps: 50
+                    },
+                    hasCookies: true,
+                    success: responseText => {
+                        const res = Base.strToJson(responseText);
+                        let uids = [];
+                        if (res.code === 0) {
+                            res.data.forEach(d => {
+                                uids.push(d.mid);
+                            })
+                            Tooltip.log('[取消关注]成功获取取关分区列表');
+                            resolve(uids)
+                        } else {
+                            Tooltip.warn(`[取消关注]获取取关分区列表失败\n${responseText}`);
+                            resolve(uids)
+                        }
+                    }
+                })
+            });
         },
         /**
          * 取消关注
@@ -911,6 +953,14 @@
                         Tooltip.log('[自动点赞]点赞成功');
                     } else {
                         Tooltip.warn(`[转发动态]点赞失败\n${responseText}`);
+                        errorbar.appendChild(Base.createCompleteElement({
+                            tagname: 'a',
+                            attr: {
+                                href: `https://t.bilibili.com/${dyid}`,
+                                target: "_blank"
+                            },
+                            text: `未成功点赞的动态|动态id:${dyid}`,
+                        }))
                     }
                 }
             })
@@ -940,7 +990,15 @@
                     if (/^{"code":0/.test(responseText)) {
                         Tooltip.log('[转发动态]成功转发一条动态');
                     } else {
-                        Tooltip.warn(`[转发动态]转发动态失败\n${responseText}`);
+                        Tooltip.warn(`[转发动态]转发动态失败,请在"错误信息"处手动处理\n${responseText}`);
+                        errorbar.appendChild(Base.createCompleteElement({
+                            tagname: 'a',
+                            attr: {
+                                href: `https://t.bilibili.com/${dyid}`,
+                                target: "_blank"
+                            },
+                            text: `未成功转发的动态|动态id:${dyid}`,
+                        }))
                     }
                 }
             })
@@ -977,9 +1035,11 @@
          * 1(视频)  
          * 11(有图)  
          * 17(无图)  
-         * @returns {void}
+         * @param {boolean} show
+         * @param {string} dyid
+         * @returns {Promise<0 | -1>}
          */
-        sendChat: (rid,msg,type,show=true) => {
+        sendChat: (rid, msg, type, show, dyid = '') => {
             Ajax.post({
                 url: 'https://api.bilibili.com/x/v2/reply/add',
                 hasCookies: true,
@@ -995,7 +1055,15 @@
                     if (/^{"code":0/.test(responseText)) {
                         show ? Tooltip.log('[自动评论]评论成功') : void 0;
                     } else {
-                        show ? Tooltip.warn(`[自动评论]评论失败${responseText}`) : void 0;
+                        show ? Tooltip.warn(`[自动评论]评论失败,请在"错误信息"处手动评论${responseText}`) : void 0;
+                        errorbar.appendChild(Base.createCompleteElement({
+                            tagname: 'a',
+                            attr: {
+                                href: `https://t.bilibili.com/${dyid}`,
+                                target: "_blank"
+                            },
+                            text: `未成功评论的动态|动态id:${dyid}`,
+                        }))
                     }
                 }
             })
@@ -1012,7 +1080,6 @@
                     url: 'https://api.bilibili.com/x/relation/tags',
                     queryStringsObj: {
                         jsonp: 'jsonp',
-                        callback: '__jp14'
                     },
                     hasCookies: true,
                     success: responseText => {
@@ -1464,7 +1531,7 @@
                     })
                 }
                 if (typeof rid === 'string'&& type !== 0) {
-                    BiliAPI.sendChat(rid, Base.getRandomStr(config.chat), type);
+                    BiliAPI.sendChat(rid, Base.getRandomStr(config.chat), type, true, dyid);
                 }
                 await Base.delay(Number(config.wait));
                 return;
@@ -1558,6 +1625,13 @@
                                             attr: {
                                                 id: 'showtab2',
                                             },
+                                            text: '错误信息',
+                                        }),
+                                        createCompleteElement({
+                                            tagname: 'div',
+                                            attr: {
+                                                id: 'showtab3',
+                                            },
                                             text: '设置',
                                         }),
                                     ]
@@ -1638,7 +1712,7 @@
                                                         }),
                                                         createCompleteElement({
                                                             tagname: 'p',
-                                                            text: '(默认移除所有转发动态或关注up,使用前请在在白名单内填入不想移除的动态和up主,请定期使用此功能清空无法处理的动态和本地存储信息)',
+                                                            text: '(默认移除所有转发动态或临时关注up,使用前请在在白名单内填入不想移除的动态,请定期使用此功能清空无法处理的动态和本地存储信息)',
                                                         }),
                                                         createCompleteElement({
                                                             tagname: 'span',
@@ -1678,6 +1752,12 @@
                                                     ]
                                                 })
                                             ]
+                                        }),
+                                        createCompleteElement({
+                                            tagname: 'div',
+                                            attr: {
+                                                class: 'tab error',
+                                            }
                                         }),
                                         createCompleteElement({
                                             tagname: 'div',
@@ -1877,7 +1957,7 @@
                                                         }),
                                                         createCompleteElement({
                                                             tagname: 'p',
-                                                            text: '此处存放白名单(用户UID或动态的ID):',
+                                                            text: '此处存放白名单(动态的ID):',
                                                         }),
                                                         createCompleteElement({
                                                             tagname: 'textarea',
@@ -1959,6 +2039,7 @@
                         element.style.display = index == num ? 'block' : 'none';
                     }
                 }
+            errorbar = shanmitemenu.querySelector('.tab.error');
             show(0);
             tabsarr[0].addEventListener(
                 'scroll',
@@ -1987,6 +2068,9 @@
                         break;
                     case 'showtab2':
                         show(2);
+                        break;
+                    case 'showtab3':
+                        show(3);
                         break;
                     case 'lottery':
                         eventBus.emit('Turn_on_the_Monitor');
@@ -2027,7 +2111,7 @@
                         break;
                     case 'sudormdy':
                         (async () => {
-                            const isKillAll = confirm('是否进入强力清除模式(建议在关注数达到上限时使用)\n请确认是否需要在白名单内填入不想移除的动态和up主\n此功能将会移除所有的转发信息');
+                            const isKillAll = confirm('是否进入强力清除模式(建议在关注数达到上限时使用)\n请确认是否需要在白名单内填入不想移除的动态');
                             if (isKillAll) {
                                 if (!confirm('请再次确定')) return;
                                 const a = prompt('只删除动态请输入"1"\n只移除关注请输入"2"\n全选请输入"3"\n移除动态和移除关注最好分开进行');
@@ -2039,8 +2123,9 @@
                                 let offset = '0';
                                 const _time = Date.now()/1000 - Number(day.value)*86400;
                                 if (a === "1" || a === "3") {
-                                    for (let index = 0; index < 10000; index++) {
+                                    for (let index = 0; index < 1000; index++) {
                                         if (index < Number(page.value)) {
+                                        Tooltip.log(`跳过第${index}页`);
                                             continue;
                                         }
                                         Tooltip.log(`第${index}页`);
@@ -2048,25 +2133,29 @@
                                         offset = _offset;
                                         for (let index = 0; index < allModifyDynamicResArray.length; index++) {
                                             const res = allModifyDynamicResArray[index];
-                                            const { type, createtime, dynamic_id, origin_uid } = res;
+                                            const { type, createtime, dynamic_id } = res;
                                             if (type === 1) {
-                                                const reg1 = new RegExp(dynamic_id)
-                                                    , reg2 = new RegExp(origin_uid);
+                                                const reg1 = new RegExp(dynamic_id);
                                                 if (createtime < _time) {
-                                                    (a === "1" || a === "3") && !reg1.test(config.whitelist) ? BiliAPI.rmDynamic(dynamic_id) : void 0;
-                                                    a === "3" && !reg2.test(config.whitelist) ? BiliAPI.cancelAttention(origin_uid) : void 0;
+                                                    !reg1.test(config.whitelist) ? BiliAPI.rmDynamic(dynamic_id) : void 0;
                                                 }
                                             }
                                         }
                                         if (offset === '0') break;
                                     }
-                                } else if (a === "2") {
-                                    const uidstr = await BiliAPI.getAttentionList(GlobalVar.myUID)
-                                        , uidarr = uidstr.split(',');
-                                    for (let index = 0; index < uidarr.length; index++) {
-                                        const uid = uidarr[index];
-                                        !uid.test(config.whitelist) ? BiliAPI.cancelAttention(uid) : void 0;
-                                        await Base.delay(Number(time) * 1000)
+                                }
+                                if (a === "2"|| a === "3") {
+                                    const tagid = await BiliAPI.checkMyPartition();
+                                    let rmup = [];
+                                    for (let index = 1; index < 42; index++) {
+                                        const uids = await BiliAPI.getPartitionUID(tagid, index);
+                                        rmup.push(...uids);
+                                        if (uids.length === 0) break;
+                                    }
+                                    for (let index = 0; index < rmup.length; index++) {
+                                        const uid = rmup[index];
+                                        BiliAPI.cancelAttention(uid);
+                                        await Base.delay(Number(time) * 1000);
                                     }
                                 }
                                 alert('成功清除,感谢使用');
@@ -2388,7 +2477,7 @@
             eval(sjson.dynamicScript);/* 仅用于推送消息,请放心使用 */
             return [
                 {
-                    version: '|version: 3.7.4',
+                    version: '|version: 3.7.5',
                     author: '@shanmite',
                     UIDs: sjson.UIDs,
                     TAGs: sjson.TAGs
