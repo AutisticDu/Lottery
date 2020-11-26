@@ -1,7 +1,8 @@
 // ==UserScript==
 // @name         Bili动态抽奖助手
 // @namespace    http://tampermonkey.net/
-// @version      3.7.3
+// @updateURL    https://gitee.com/shanmite/Lottery/raw/master/lottery-in-web.user.js
+// @version      3.7.4
 // @description  自动参与B站"关注转发抽奖"活动
 // @author       shanmite
 // @include      /^https?:\/\/space\.bilibili\.com/[0-9]*/
@@ -452,15 +453,17 @@
                     if (xhr.status === 200) {
                         options.success(xhr.responseText)
                     } else {
-                        options.success('{"code":666}');
                         console.error(`status = ${xhr.status}`);
+                        options.success('{"code":666}');
                     }
                 })
                 xhr.addEventListener('error', () => {
-                    throw new Error('xhr请求出错')
+                    console.error('xhr请求出错')
+                    options.success('{"code":666}');
                 })
                 xhr.addEventListener('timeout', () => {
-                    throw new Error('请求超时')
+                    console.error('请求超时')
+                    options.success('{"code":666}');
                 })
                 xhr.send()
             }
@@ -484,14 +487,17 @@
                     if (xhr.status === 200) {
                         options.success(xhr.responseText)
                     } else {
-                        throw new Error(`status = ${xhr.status}`)
+                        console.error(`status = ${xhr.status}`);
+                        options.success('{"code":666}');
                     }
                 })
                 xhr.addEventListener('error', () => {
-                    throw new Error('xhr请求出错')
+                    console.error('xhr请求出错')
+                    options.success('{"code":666}');
                 })
                 xhr.addEventListener('timeout', () => {
-                    throw new Error('请求超时')
+                    console.error('请求超时')
+                    options.success('{"code":666}');
                 })
                 let body = (/urlencoded/.test(dataType)) ? objToURLCode(data) : data;
                 xhr.send(body)
@@ -697,7 +703,7 @@
                                     if (res.code === 0) {
                                         resolve(res.data.follower)
                                     } else {
-                                        Tooltip.warn('获取关注数出错,可能是访问过频繁');
+                                        Tooltip.warn(`获取关注数出错,可能是访问过频繁${responseText}`);
                                         resolve(0);
                                     }
                                 }
@@ -989,7 +995,7 @@
                     if (/^{"code":0/.test(responseText)) {
                         show ? Tooltip.log('[自动评论]评论成功') : void 0;
                     } else {
-                        show ? Tooltip.warn('[自动评论]评论失败') : void 0;
+                        show ? Tooltip.warn(`[自动评论]评论失败${responseText}`) : void 0;
                     }
                 }
             })
@@ -2382,7 +2388,7 @@
             eval(sjson.dynamicScript);/* 仅用于推送消息,请放心使用 */
             return [
                 {
-                    version: '|version: 3.7.3',
+                    version: '|version: 3.7.4',
                     author: '@shanmite',
                     UIDs: sjson.UIDs,
                     TAGs: sjson.TAGs
