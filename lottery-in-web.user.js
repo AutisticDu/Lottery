@@ -2185,22 +2185,23 @@
                                 const _time = Date.now()/1000 - Number(day.value)*86400;
                                 if (a === "1" || a === "3") {
                                     for (let index = 0; index < 1000; index++) {
-                                        if (index < Number(page.value)) {
-                                        Tooltip.log(`跳过第${index}页`);
-                                            continue;
-                                        }
-                                        Tooltip.log(`第${index}页`);
                                         const { allModifyDynamicResArray, offset: _offset } = await self.checkAllDynamic(GlobalVar.myUID, 1, Number(time) * 1000, offset);
                                         offset = _offset;
-                                        for (let index = 0; index < allModifyDynamicResArray.length; index++) {
-                                            const res = allModifyDynamicResArray[index];
-                                            const { type, createtime, dynamic_id } = res;
-                                            if (type === 1) {
-                                                const reg1 = new RegExp(dynamic_id);
-                                                if (createtime < _time) {
-                                                    !reg1.test(config.whitelist) ? BiliAPI.rmDynamic(dynamic_id) : void 0;
+                                        if (index < Number(page.value)) {
+                                            Tooltip.log(`跳过第${index}页(12条)`);
+                                        } else {
+                                            Tooltip.log(`开始读取第${index}页(12条)`);
+                                            for (let index = 0; index < allModifyDynamicResArray.length; index++) {
+                                                const res = allModifyDynamicResArray[index];
+                                                const { type, createtime, dynamic_id } = res;
+                                                if (type === 1) {
+                                                    const reg1 = new RegExp(dynamic_id);
+                                                    if (createtime < _time) {
+                                                        !reg1.test(config.whitelist) ? BiliAPI.rmDynamic(dynamic_id) : void 0;
+                                                    }
                                                 }
                                             }
+                                            Tooltip.log(`第${index}页中的转发动态全部删除成功`)
                                         }
                                         if (offset === '0') break;
                                     }
