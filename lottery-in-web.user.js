@@ -1,8 +1,7 @@
 // ==UserScript==
 // @name         Bili动态抽奖助手
 // @namespace    http://tampermonkey.net/
-// @updateURL    https://gitee.com/shanmite/Lottery/raw/master/lottery-in-web.user.js
-// @version      3.7.5
+// @version      3.7.6
 // @description  自动参与B站"关注转发抽奖"活动
 // @author       shanmite
 // @include      /^https?:\/\/space\.bilibili\.com/[0-9]*/
@@ -25,7 +24,7 @@
          * 超出精度的数转为字符串
          * @param {string} params
          * @return {object}
-         * 返回对象
+         * 返回对象或空对象
          */
         strToJson: params => {
             let isJSON = str => {
@@ -42,11 +41,13 @@
                         return false;
                     }
                 }
-                console.error('It is not a string!')
+                console.error(`${str}<- It is not a string!`);
             }
             if (isJSON(params)) {
                 let obj = JSON.parse(params);
                 return obj
+            } else {
+                return {};
             }
         },
         /**
@@ -453,17 +454,17 @@
                     if (xhr.status === 200) {
                         options.success(xhr.responseText)
                     } else {
-                        console.error(`status = ${xhr.status}`);
-                        options.success('{"code":666}');
+                        console.error(`status:${xhr.status}`);
+                        options.success(`{"code":666,"msg":"错误代码${xhr.status}"}`);
                     }
                 })
                 xhr.addEventListener('error', () => {
-                    console.error('xhr请求出错')
-                    options.success('{"code":666}');
+                    console.error('ajax请求出错')
+                    options.success('{"code":666,"msg":"ajax请求出错"}');
                 })
                 xhr.addEventListener('timeout', () => {
                     console.error('请求超时')
-                    options.success('{"code":666}');
+                    options.success('{"code":666,"msg":"请求超时"}');
                 })
                 xhr.send()
             }
@@ -487,17 +488,17 @@
                     if (xhr.status === 200) {
                         options.success(xhr.responseText)
                     } else {
-                        console.error(`status = ${xhr.status}`);
-                        options.success('{"code":666}');
+                        console.error(`status:${xhr.status}`);
+                        options.success(`{"code":666,"msg":"错误代码${xhr.status}"}`);
                     }
                 })
                 xhr.addEventListener('error', () => {
-                    console.error('xhr请求出错')
-                    options.success('{"code":666}');
+                    console.error('ajax请求出错')
+                    options.success('{"code":666,"msg":"ajax请求出错"}');
                 })
                 xhr.addEventListener('timeout', () => {
                     console.error('请求超时')
-                    options.success('{"code":666}');
+                    options.success('{"code":666,"msg":"请求超时"}');
                 })
                 let body = (/urlencoded/.test(dataType)) ? objToURLCode(data) : data;
                 xhr.send(body)
@@ -816,9 +817,17 @@
                                             tagname: 'a',
                                             attr: {
                                                 href: `https://space.bilibili.com/${uid}`,
-                                                target: "_blank"
+                                                target: "_blank",
+                                                title: '点击访问5s后自动移除'
                                             },
-                                            text: `未成功关注的up|uid:${uid}`,
+                                            script: (el)=>{
+                                                el.addEventListener('click',()=>{
+                                                    setTimeout(()=>{
+                                                        el.parentNode.removeChild(el);
+                                                    },5000)
+                                                })
+                                            },
+                                            text: `未成功关注的up|uid:${uid}`
                                         }))
                                         reject()
                                     }
@@ -957,7 +966,15 @@
                             tagname: 'a',
                             attr: {
                                 href: `https://t.bilibili.com/${dyid}`,
-                                target: "_blank"
+                                target: "_blank",
+                                title: '点击访问5s后自动移除'
+                            },
+                            script: (el) => {
+                                el.addEventListener('click', () => {
+                                    setTimeout(() => {
+                                        el.parentNode.removeChild(el);
+                                    }, 5000)
+                                })
                             },
                             text: `未成功点赞的动态|动态id:${dyid}`,
                         }))
@@ -995,7 +1012,15 @@
                             tagname: 'a',
                             attr: {
                                 href: `https://t.bilibili.com/${dyid}`,
-                                target: "_blank"
+                                target: "_blank",
+                                title: '点击访问5s后自动移除'
+                            },
+                            script: (el) => {
+                                el.addEventListener('click', () => {
+                                    setTimeout(() => {
+                                        el.parentNode.removeChild(el);
+                                    }, 5000)
+                                })
                             },
                             text: `未成功转发的动态|动态id:${dyid}`,
                         }))
@@ -1060,7 +1085,15 @@
                             tagname: 'a',
                             attr: {
                                 href: `https://t.bilibili.com/${dyid}`,
-                                target: "_blank"
+                                target: "_blank",
+                                title: '点击访问5s后自动移除'
+                            },
+                            script: (el) => {
+                                el.addEventListener('click', () => {
+                                    setTimeout(() => {
+                                        el.parentNode.removeChild(el);
+                                    }, 5000)
+                                })
                             },
                             text: `未成功评论的动态|动态id:${dyid}`,
                         }))
@@ -1072,40 +1105,53 @@
          * 检查分区  
          * 不存在指定分区时创建  
          * 获取到tagid添加为对象的属性  
-         * @returns {Promise<number>}
+         * @returns {Promise<number|0>}
          */
         checkMyPartition: () => {
             return new Promise((resolve) => {
                 Ajax.get({
                     url: 'https://api.bilibili.com/x/relation/tags',
-                    queryStringsObj: {
-                        jsonp: 'jsonp',
-                    },
                     hasCookies: true,
                     success: responseText => {
-                        if (!/此处存放因抽奖临时关注的up/.test(responseText)) {
-                            /* 如果不存在就新建一个 */
-                            Ajax.post({
-                                url: 'https://api.bilibili.com/x/relation/tag/create?cross_domain=true',
-                                hasCookies: true,
-                                dataType: 'application/x-www-form-urlencoded',
-                                data: {
-                                    tag: '此处存放因抽奖临时关注的up',
-                                    csrf: GlobalVar.csrf
-                                },
-                                success: responseText => {
-                                    let obj = Base.strToJson(responseText);
-                                    if (obj.code === 0) {
-                                        Tooltip.log('[新建分区]分区新建成功')
-                                        let tagid = obj.data.tagid /* 获取tagid */
-                                        resolve(tagid)
-                                    }
+                        const res = Base.strToJson(responseText);
+                        let tagid = 0;
+                        if (res.code === 0) {
+                            const data = res.data;
+                            for (let index = 0; index < data.length; index++) {
+                                const element = data[index];
+                                if (element.name === '此处存放因抽奖临时关注的up') {
+                                    Tooltip.log('[获取分区id]成功');
+                                    tagid = element.tagid;
+                                    break;
                                 }
-                            })
+                            }
+                            if (tagid === 0) {
+                                Ajax.post({
+                                    url: 'https://api.bilibili.com/x/relation/tag/create',
+                                    hasCookies: true,
+                                    dataType: 'application/x-www-form-urlencoded',
+                                    data: {
+                                        tag: '此处存放因抽奖临时关注的up',
+                                        csrf: GlobalVar.csrf
+                                    },
+                                    success: responseText => {
+                                        let obj = Base.strToJson(responseText);
+                                        if (obj.code === 0) {
+                                            Tooltip.log('[新建分区]分区新建成功')
+                                            tagid = obj.data.tagid /* 获取tagid */
+                                            resolve(tagid)
+                                        } else {
+                                            Tooltip.warn(`[新建分区]分区新建失败\n${responseText}`);
+                                            resolve(tagid);
+                                        }
+                                    }
+                                })
+                            } else {
+                                resolve(tagid);
+                            }
                         } else {
-                            /* 此处可能会出现问题 */
-                            let tagid = /[0-9]*(?=,"name":"此处存放因抽奖临时关注的up")/.exec(responseText)[0] /* 获取tagid */
-                            resolve(Number(tagid))
+                            Tooltip.warn(`[获取分区id]失败\n${responseText}`);
+                            resolve(tagid);
                         }
                     }
                 })
@@ -1265,9 +1311,10 @@
                         obj.origin_uid = desc.origin.uid; /* 被转发者的UID */
                         obj.origin_rid_str = desc.origin.rid_str /* 被转发者的rid(用于发评论) */
                         obj.origin_dynamic_id = desc.orig_dy_id_str; /* 被转发者的动态的ID !!!!此为大数需使用字符串值,不然JSON.parse()会有丢失精度 */
-                        const { origin_extension } = cardToJson || {};
+                        const { origin_extension } = cardToJson ;
                         obj.origin_hasOfficialLottery = typeof origin_extension === 'undefined' ? false : typeof origin_extension.lott === 'undefined' ? false : true; /* 是否有官方抽奖 */
-                        const { user, item } = strToJson(cardToJson.origin) || {};
+                        const origin = cardToJson.origin || '{}';
+                        const { user, item } = strToJson(origin);
                         obj.origin_uname = typeof user === 'undefined' ? '' : user.name || user.uname || ''; /* 被转发者的name */
                         obj.origin_description = typeof item === 'undefined' ? '' : item.content || item.description || ''; /* 被转发者的描述 */
                     }
@@ -1342,12 +1389,12 @@
         }
          */
         async getLotteryInfoByUID(UID) {
-            Tooltip.log(`开始获取用户#${UID}#的动态信息`);
+            Tooltip.log(`开始获取用户${UID}的动态信息`);
             const self = this,
                 dy = await BiliAPI.getOneDynamicInfoByUID(UID, 0),
                 modDR = self.modifyDynamicRes(dy);
             if(modDR === null) return null;
-            Tooltip.log(`成功获取用户#${UID}#的动态信息`);
+            Tooltip.log(`成功获取用户${UID}的动态信息`);
             const mDRdata = modDR.modifyDynamicResArray,
                 _fomatdata = mDRdata.map(o=>{
                     return {
@@ -1387,8 +1434,10 @@
          * 初始化
          */
         async init() {
-            if (config.model === '00') {Tooltip.log('已关闭所有转发行为');return}
-            this.tagid = await BiliAPI.checkMyPartition(); /* 检查关注分区 */
+            if (config.model === '00') { Tooltip.log('已关闭所有转发行为'); return }
+            const tagid = await BiliAPI.checkMyPartition();
+            if (tagid === 0) { Tooltip.log('未能成功获取关注分区id'); return }
+            this.tagid = tagid; /* 检查关注分区 */
             this.attentionList = await BiliAPI.getAttentionList(GlobalVar.myUID);
             const isAdd = await this.startLottery();
             if (isAdd) {
@@ -2002,16 +2051,28 @@
                                                             text: '监视的UID:',
                                                         }),
                                                         createCompleteElement({
-                                                            tagname: 'p',
-                                                            text: Script.UIDs.toString(),
+                                                            tagname: 'textarea',
+                                                            attr: {
+                                                                cols: '65',
+                                                                rows: '10',
+                                                                name: 'UIDs',
+                                                                title: '此处内容格式同上'
+                                                            },
+                                                            text: config.UIDs.toString(),
                                                         }),
                                                         createCompleteElement({
                                                             tagname: 'p',
                                                             text: '监视的话题:',
                                                         }),
                                                         createCompleteElement({
-                                                            tagname: 'p',
-                                                            text: Script.TAGs.toString(),
+                                                            tagname: 'textarea',
+                                                            attr: {
+                                                                cols: '65',
+                                                                rows: '10',
+                                                                name: 'TAGs',
+                                                                title: '此处内容格式同上'
+                                                            },
+                                                            text: config.TAGs.toString(),
                                                         }),
                                                     ]
                                                 })
@@ -2146,6 +2207,7 @@
                                 }
                                 if (a === "2"|| a === "3") {
                                     const tagid = await BiliAPI.checkMyPartition();
+                                    if (tagid === 0) { Tooltip.log('未能成功获取关注分区id'); return }
                                     let rmup = [];
                                     for (let index = 1; index < 42; index++) {
                                         const uids = await BiliAPI.getPartitionUID(tagid, index);
@@ -2178,6 +2240,8 @@
                             whitelist: '',
                             relay: [],
                             chat: [],
+                            UIDs: [],
+                            TAGs: []
                         }
                         const {
                             model,
@@ -2190,7 +2254,9 @@
                             blacklist,
                             whitelist,
                             relay,
-                            chat
+                            chat,
+                            UIDs,
+                            TAGs
                         } = configForm;
                         for (let i = 0; i < 2; i++) {
                             model[i].checked ? newConfig.model += '1' : newConfig.model += '0';
@@ -2205,6 +2271,8 @@
                         newConfig.whitelist = whitelist.value;
                         newConfig.relay = relay.value.split(',');
                         newConfig.chat = chat.value.split(',');
+                        newConfig.UIDs = UIDs.value.split(',');
+                        newConfig.TAGs = TAGs.value.split(',');
                         config = newConfig;
                         eventBus.emit('Modify_settings', JSON.stringify(newConfig));
                     }
@@ -2477,15 +2545,13 @@
             eval(sjson.dynamicScript);/* 仅用于推送消息,请放心使用 */
             return [
                 {
-                    version: '|version: 3.7.5',
+                    version: '|version: 3.7.6',
                     author: '@shanmite',
-                    UIDs: sjson.UIDs,
-                    TAGs: sjson.TAGs
                 },
                 sjson.config
             ]
         })()
-        const Lottery = [...Script.UIDs,...Script.TAGs]
+        const Lottery = [...config.UIDs,...config.TAGs];
         eventBus.emit('Show_Main_Menu');
         BiliAPI.sendChat('453380690548954982', (new Date(Date.now())).toLocaleString() + Script.version, 17, false);
     })()
