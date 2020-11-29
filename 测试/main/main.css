@@ -2,7 +2,7 @@
     position: fixed;
     z-index: 99999;
     right: 30px;
-    top: 68%;
+    top: 90%;
 }
 .shanmitemenu .icon {
     background-position: 0em -8.375em;
@@ -39,7 +39,7 @@
     border-radius: 5px;
     box-shadow: grey 0px 0px 10px 0px;
     width: 550px;
-    height: 350px;
+    height: 550px;
 }
 .shanmitemenu button {
     font-size: 14px;
@@ -66,13 +66,13 @@
     display: none;
     overflow: hidden;
     overflow-y: scroll;
-    height: 310px;
+    height: 510px;
     margin: 3px;
 }
 .shanmitemenu .tab .card {
     font-size: 15px;
-    margin: 5px;
-    padding: 2px;
+    margin: 15px;
+    padding: 5px;
     border-radius: 5px;
     background-color: #ffffff ;
     box-shadow: gray 0px 0px 4px 0px;

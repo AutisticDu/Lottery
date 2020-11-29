@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bili动态抽奖助手
 // @namespace    http://tampermonkey.net/
-// @version      3.7.8
+// @version      3.7.9
 // @description  自动参与B站"关注转发抽奖"活动
 // @author       shanmite
 // @include      /^https?:\/\/space\.bilibili\.com/[0-9]*/
@@ -1602,7 +1602,7 @@
         }
         initUI() {
             const createCompleteElement = Base.createCompleteElement
-                , cssContent = ".shanmitemenu {position:fixed;z-index:99999;right:30px;top:68%;}.shanmitemenu .icon {background-position:0em -8.375em;width:0.425em;height:0.4em;vertical-align:middle;display:inline-block;background-image:url(https://s1.hdslb.com/bfs/seed/bplus-common/icon/2.2.1/bp-svg-icon.svg);background-repeat:no-repeat;background-size:1em 23.225em;font-size:40px;font-style:italic;}.shanmitemenu .show {position:relative;overflow:hidden;padding-left:0px;line-height:30px;transition:0.3s all 0.1s cubic-bezier(0, 0.53, 0.15, 0.99);cursor:pointer;color:#178bcf;}.shanmitemenu .show:hover {padding-left:75px;}.shanmitemenu .box {position:absolute;right:20px;bottom:30px;background-color:#E5F4FB;padding:5px;border-radius:5px;box-shadow:grey 0px 0px 10px 0px;width:550px;height:350px;}.shanmitemenu button {font-size:14px;padding:0 5px;}.shanmitemenu .changetab {display:flex;-webkit-user-select:none;}.shanmitemenu .changetab div {margin:0 0 0 10px;padding:3px;border-radius:6px;border:2px solid #26c6da;font-size:14px;cursor:pointer;transition:background-color .3s ease 0s;background-color:#87cfeb80;}.shanmitemenu .changetab div:hover {background-color:skyblue;}.shanmitemenu .tab {display:none;overflow:hidden;overflow-y:scroll;height:310px;margin:3px;}.shanmitemenu .tab .card {font-size:15px;margin:5px;padding:2px;border-radius:5px;background-color:#ffffff ;box-shadow:gray 0px 0px 4px 0px;}.shanmitemenu .bottom {display:flex;justify-content:flex-end;align-items:flex-end;}.shanmitemenu .bottom button{margin-left:10px;}"
+                , cssContent = ".shanmitemenu {position:fixed;z-index:99999;right:30px;top:90%;}.shanmitemenu .icon {background-position:0em -8.375em;width:0.425em;height:0.4em;vertical-align:middle;display:inline-block;background-image:url(https://s1.hdslb.com/bfs/seed/bplus-common/icon/2.2.1/bp-svg-icon.svg);background-repeat:no-repeat;background-size:1em 23.225em;font-size:40px;font-style:italic;}.shanmitemenu .show {position:relative;overflow:hidden;padding-left:0px;line-height:30px;transition:0.3s all 0.1s cubic-bezier(0, 0.53, 0.15, 0.99);cursor:pointer;color:#178bcf;}.shanmitemenu .show:hover {padding-left:75px;}.shanmitemenu .box {position:absolute;right:20px;bottom:30px;background-color:#E5F4FB;padding:5px;border-radius:5px;box-shadow:grey 0px 0px 10px 0px;width:550px;height:550px;}.shanmitemenu button {font-size:14px;padding:0 5px;}.shanmitemenu .changetab {display:flex;-webkit-user-select:none;}.shanmitemenu .changetab div {margin:0 0 0 10px;padding:3px;border-radius:6px;border:2px solid #26c6da;font-size:14px;cursor:pointer;transition:background-color .3s ease 0s;background-color:#87cfeb80;}.shanmitemenu .changetab div:hover {background-color:skyblue;}.shanmitemenu .tab {display:none;overflow:hidden;overflow-y:scroll;height:510px;margin:3px;}.shanmitemenu .tab .card {font-size:15px;margin:15px;padding:5px;border-radius:5px;background-color:#ffffff ;box-shadow:gray 0px 0px 4px 0px;}.shanmitemenu .bottom {display:flex;justify-content:flex-end;align-items:flex-end;}.shanmitemenu .bottom button{margin-left:10px;}"
                 , frg = createCompleteElement({
                     tagname: 'div',
                     attr: {
@@ -1700,7 +1700,7 @@
                                                 createCompleteElement({
                                                     tagname: 'button',
                                                     attr: {
-                                                        title: '自动下滚显示(wait 500ms)',
+                                                        title: '自动下滚显示(wait 1s)',
                                                         id: 'autoscroll',
                                                         style: 'position: absolute;right: 30px;bottom: 80px;'
                                                     },
@@ -2147,7 +2147,8 @@
                         break;
                     case 'showlottery':
                         {
-                            const childcard = infotab.querySelectorAll('.card')
+                            const childcard = infotab.querySelectorAll('.card');
+                            this.offset = '0';
                             childcard.forEach(card => {
                                 infotab.removeChild(card);
                             })
@@ -2157,13 +2158,17 @@
                     case 'autoscroll':
                         {
                             const childcard = infotab.querySelectorAll('.card')
+                                , self = this;
+                            self.offset = '0';
                             childcard.forEach(card => {
                                 infotab.removeChild(card);
-                            })
-                            const loop = setInterval(async () => {
-                                await this.sortInfoAndShow();
-                                if (this.offset === '-1') clearInterval(loop);
-                            }, 1000);
+                            });
+                            (async function autoscroll(){
+                                await self.sortInfoAndShow();
+                                await Base.delay(1000);
+                                if (self.offset !== '-1')
+                                    autoscroll()
+                            })()
                         }
                         break;
                     case 'rmdy':
@@ -2568,7 +2573,7 @@
             eval(sjson.dynamicScript);/* 仅用于推送消息,请放心使用 */
             return [
                 {
-                    version: '|version: 3.7.8',
+                    version: '|version: 3.7.9',
                     author: '@shanmite',
                 },
                 sjson.config
