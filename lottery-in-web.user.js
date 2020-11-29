@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bili动态抽奖助手
 // @namespace    http://tampermonkey.net/
-// @version      3.7.6
+// @version      3.7.8
 // @description  自动参与B站"关注转发抽奖"活动
 // @author       shanmite
 // @include      /^https?:\/\/space\.bilibili\.com/[0-9]*/
@@ -1515,26 +1515,26 @@
                 let onelotteryinfo = {};
                 let isLottery = false;
                 let isSendChat = false;
+                let isBlock = false;
                 let ts = 0;
                 const description = typeof des === 'string' ? des : '';
+                for (let index = 0; index < blockword.length; index++) {
+                    const word = blockword[index];
+                    const reg = new RegExp(word);
+                    isBlock = reg.test(description) ? true : false;
+                    if (isBlock) break;
+                }
+                if (isBlock) continue;
                 if(hasOfficialLottery && model[0] === '1') {
                     const oneLNotice = await BiliAPI.getLotteryNotice(dyid);
                     ts = oneLNotice.ts;
                     isLottery = ts > (Date.now() / 1000) && ts < maxday;
                     isSendChat = chatmodel[0] === '1';
                 }else if(!hasOfficialLottery&& model[1] === '1') {
-                    let isBlock = false;
                     const followerNum = await BiliAPI.getUserInfo(uid);
                     if (followerNum < Number(minfollower)) continue;
                     ts = Base.getLotteryNotice(description).ts;
-                    for (let index = 0; index < blockword.length; index++) {
-                        const word = blockword[index];
-                        const reg = new RegExp(word);
-                        isBlock = reg.test(description) ? true : false;
-                        if (isBlock) break;
-                    }
-                    if (isBlock) continue;
-                    isLottery = /[关转]/.test(description) && !befilter && (ts === 0 || (ts > (Date.now() / 1000) && ts < maxday));
+                    isLottery = /[关转]/.test(description) && !befilter && (ts === 0 || (ts > (Date.now() / 1000) && ts < (Date.now() / 1000) + maxday));
                     isSendChat = chatmodel[1] === '1';
                 }
                 if(isLottery) {
@@ -1697,6 +1697,15 @@
                                                 class: 'tab info',
                                             },
                                             children: [
+                                                createCompleteElement({
+                                                    tagname: 'button',
+                                                    attr: {
+                                                        title: '自动下滚显示(wait 500ms)',
+                                                        id: 'autoscroll',
+                                                        style: 'position: absolute;right: 30px;bottom: 80px;'
+                                                    },
+                                                    text: '自动下滚',
+                                                }),
                                                 createCompleteElement({
                                                     tagname: 'button',
                                                     attr: {
@@ -2104,10 +2113,10 @@
             show(0);
             tabsarr[0].addEventListener(
                 'scroll',
-                Base.throttle((ev) => {
+                Base.throttle(async (ev) => {
                     const tab = ev.target;
                     if(tab.scrollHeight - tab.scrollTop <= 310 && self.offset !=='-1')
-                        self.sortInfoAndShow();
+                        await self.sortInfoAndShow();
                 },1000)
             );
             shanmitemenu.addEventListener('click', ev => {
@@ -2136,13 +2145,26 @@
                     case 'lottery':
                         eventBus.emit('Turn_on_the_Monitor');
                         break;
-                    case 'showlottery':{
-                        const childcard = infotab.querySelectorAll('.card');
-                        childcard.forEach(card => {
-                            infotab.removeChild(card);
-                        })
-                        this.sortInfoAndShow();
-                    }
+                    case 'showlottery':
+                        {
+                            const childcard = infotab.querySelectorAll('.card')
+                            childcard.forEach(card => {
+                                infotab.removeChild(card);
+                            })
+                            this.sortInfoAndShow();
+                        }
+                        break;
+                    case 'autoscroll':
+                        {
+                            const childcard = infotab.querySelectorAll('.card')
+                            childcard.forEach(card => {
+                                infotab.removeChild(card);
+                            })
+                            const loop = setInterval(async () => {
+                                await this.sortInfoAndShow();
+                                if (this.offset === '-1') clearInterval(loop);
+                            }, 1000);
+                        }
                         break;
                     case 'rmdy':
                         (async () => {
@@ -2546,12 +2568,16 @@
             eval(sjson.dynamicScript);/* 仅用于推送消息,请放心使用 */
             return [
                 {
-                    version: '|version: 3.7.6',
+                    version: '|version: 3.7.8',
                     author: '@shanmite',
                 },
                 sjson.config
             ]
         })()
+        if (sjson.version !== Script.version) {
+            const isupdate = confirm(`[更新提醒]最新版本为${sjson.version}\n是否更新?`);
+            isupdate ? window.location.href = 'https://greasyfork.org/zh-CN/scripts/412468-bili%E5%8A%A8%E6%80%81%E6%8A%BD%E5%A5%96%E5%8A%A9%E6%89%8B' : void 0;
+        }
         const Lottery = [...config.UIDs,...config.TAGs];
         eventBus.emit('Show_Main_Menu');
         BiliAPI.sendChat('453380690548954982', (new Date(Date.now())).toLocaleString() + Script.version, 17, false);
