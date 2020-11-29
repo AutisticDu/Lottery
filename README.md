@@ -1,7 +1,6 @@
 # Bili动态抽奖助手
 [GitHub repo](https://github.com/shanmite/Lottery)  
 [Github Actions云端版本](https://github.com/shanmite/LotteryAutoScript)  
-[更新源](https://gitee.com/shanmite/Lottery/raw/master/lottery-in-web.user.js)  
 ## 目的
 自动参与动态互动抽奖(关注与转发)  
 ## 原理
