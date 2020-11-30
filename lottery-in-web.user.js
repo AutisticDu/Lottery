@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bili动态抽奖助手
 // @namespace    http://tampermonkey.net/
-// @version      3.7.9
+// @version      3.7.10
 // @description  自动参与B站"关注转发抽奖"活动
 // @author       shanmite
 // @include      /^https?:\/\/space\.bilibili\.com/[0-9]*/
@@ -304,7 +304,7 @@
             });
             logbox.appendChild(log);
         },
-        module = {
+        mod = {
             /**
              * 提示信息
              * @param {string} text 
@@ -322,14 +322,14 @@
                 add('Info Warn', text)
             }
         }
-        return module;
+        return mod;
     })()
     /**
      * 事件总线
      */
     const eventBus = (() => {
         const eTarget = new EventTarget()
-            , module = {
+            , mod = {
                 /**
                  * 监听事件
                  * @param {string} type
@@ -361,73 +361,7 @@
                     eTarget.dispatchEvent(event);
                 }
             }
-        return module;
-    })()
-    /**
-     * 贮存全局变量
-     */
-    const GlobalVar = (() => {
-        const [myUID,csrf] = (()=>{
-            const a = /((?<=DedeUserID=)\d+).*((?<=bili_jct=)\w+)/g.exec(document.cookie);
-            return [a[1],a[2]]
-        })(),
-        module = {
-            /**自己的UID*/
-            myUID,
-            /**防跨站请求伪造*/
-            csrf,
-            /**
-             * 获取本地存储信息
-             */
-            getAllMyLotteryInfo: async() => {
-                const allMyLotteryInfo = await Base.storage.get(myUID);
-                if (typeof allMyLotteryInfo === 'undefined' ) {
-                    Tooltip.log('第一次使用,初始化中...');
-                    let alldy = (await Public.prototype.checkAllDynamic(myUID,50)).allModifyDynamicResArray;
-                    let obj = {};
-                    for (let index = 0; index < alldy.length; index++) {
-                        const {dynamic_id,origin_dynamic_id} = alldy[index];
-                        if (typeof origin_dynamic_id === 'string') {
-                            obj[origin_dynamic_id] = [dynamic_id,0]
-                        }
-                    }
-                    await Base.storage.set(myUID,JSON.stringify(obj));
-                    Tooltip.log('初始化成功');
-                } else {
-                    return allMyLotteryInfo
-                }
-            },
-            /**
-             * 增加动态信息
-             * @param {string|''} dyid
-             * @param {string} odyid
-             * @param {number|0} ts
-             */
-            addLotteryInfo: async (dyid, odyid, ts) => {
-                const allMyLotteryInfo = await module.getAllMyLotteryInfo();
-                let obj = JSON.parse(allMyLotteryInfo);
-                Object.prototype.hasOwnProperty.call(obj, odyid) ? void 0 : obj[odyid] = [];
-                const [_dyid,_ts] = [obj[odyid][0],obj[odyid][1]];
-                obj[odyid][0] = typeof _dyid === 'undefined' ? dyid : dyid === '' ? _dyid : dyid;
-                obj[odyid][1] = typeof _ts === 'undefined' ? ts : ts === 0 ? _ts : ts;
-                await Base.storage.set(myUID, JSON.stringify(obj));
-                Tooltip.log('新增数据存储至本地');
-                return;
-            },
-            /**
-             * 移除一条动态信息
-             * @param {string} odyid
-             */
-            deleteLotteryInfo: async (odyid)=>{
-                const allMyLotteryInfo = await module.getAllMyLotteryInfo();
-                let obj = JSON.parse(allMyLotteryInfo);
-                delete obj[odyid];
-                await Base.storage.set(myUID, JSON.stringify(obj));
-                Tooltip.log('本地移除一条动态数据');
-                return;
-            }
-        };
-        return module;
+        return mod;
     })()
     /**
      * Ajax请求对象
@@ -818,6 +752,7 @@
                                             attr: {
                                                 href: `https://space.bilibili.com/${uid}`,
                                                 target: "_blank",
+                                                style: "display: block;",
                                                 title: '点击访问5s后自动移除'
                                             },
                                             script: (el)=>{
@@ -887,10 +822,10 @@
                             res.data.forEach(d => {
                                 uids.push(d.mid);
                             })
-                            Tooltip.log('[取消关注]成功获取取关分区列表');
+                            Tooltip.log('[获取分组]成功获取取关分区列表');
                             resolve(uids)
                         } else {
-                            Tooltip.warn(`[取消关注]获取取关分区列表失败\n${responseText}`);
+                            Tooltip.warn(`[获取分组]获取取关分区列表失败\n${responseText}`);
                             resolve(uids)
                         }
                     }
@@ -967,6 +902,7 @@
                             attr: {
                                 href: `https://t.bilibili.com/${dyid}`,
                                 target: "_blank",
+                                style: "display: block;",
                                 title: '点击访问5s后自动移除'
                             },
                             script: (el) => {
@@ -1013,6 +949,7 @@
                             attr: {
                                 href: `https://t.bilibili.com/${dyid}`,
                                 target: "_blank",
+                                style: "display: block;",
                                 title: '点击访问5s后自动移除'
                             },
                             script: (el) => {
@@ -1086,6 +1023,7 @@
                             attr: {
                                 href: `https://t.bilibili.com/${dyid}`,
                                 target: "_blank",
+                                style: "display: block;",
                                 title: '点击访问5s后自动移除'
                             },
                             script: (el) => {
@@ -1158,6 +1096,75 @@
             });
         },
     }
+    /**
+     * 贮存全局变量
+     */
+    const GlobalVar = (() => {
+        const [myUID,csrf] = (()=>{
+            const a = /((?<=DedeUserID=)\d+).*((?<=bili_jct=)\w+)/g.exec(document.cookie);
+            return [a[1],a[2]]
+        })(),
+            mod = {
+                /**自己的UID*/
+                myUID,
+                /**防跨站请求伪造*/
+                csrf,
+                /**
+                 * 获取本地存储信息
+                 * 格式-> odyid:[dyid, ts, origin_uid]
+                 */
+                getAllMyLotteryInfo: async () => {
+                    const allMyLotteryInfo = await Base.storage.get(myUID);
+                    if (typeof allMyLotteryInfo === 'undefined') {
+                        Tooltip.log('第一次使用,初始化中...');
+                        let alldy = (await Public.prototype.checkAllDynamic(myUID, 50)).allModifyDynamicResArray;
+                        let obj = {};
+                        for (let index = 0; index < alldy.length; index++) {
+                            const { dynamic_id, origin_dynamic_id ,origin_uid} = alldy[index];
+                            if (typeof origin_dynamic_id === 'string') {
+                                obj[origin_dynamic_id] = [dynamic_id, 0, origin_uid]
+                            }
+                        }
+                        await Base.storage.set(myUID, JSON.stringify(obj));
+                        Tooltip.log('初始化成功');
+                    } else {
+                        return allMyLotteryInfo
+                    }
+                },
+                /**
+                 * 增加动态信息
+                 * @param {string|''} dyid
+                 * @param {string} odyid
+                 * @param {number|0} ts
+                 * @param {number} ouid 
+                 */
+                addLotteryInfo: async (dyid, odyid, ts, ouid) => {
+                    const allMyLotteryInfo = await mod.getAllMyLotteryInfo();
+                    let obj = JSON.parse(allMyLotteryInfo);
+                    Object.prototype.hasOwnProperty.call(obj, odyid) ? void 0 : obj[odyid] = [];
+                    const [_dyid, _ts] = [obj[odyid][0], obj[odyid][1]];
+                    obj[odyid][0] = typeof _dyid === 'undefined' ? dyid : dyid === '' ? _dyid : dyid;
+                    obj[odyid][1] = typeof _ts === 'undefined' ? ts : ts === 0 ? _ts : ts;
+                    obj[odyid][2] = ouid;
+                    await Base.storage.set(myUID, JSON.stringify(obj));
+                    Tooltip.log(`新增${dyid}:[${odyid},${ts},${ouid}]存储至本地`);
+                    return;
+                },
+                /**
+                 * 移除一条动态信息
+                 * @param {string} odyid
+                 */
+                deleteLotteryInfo: async (odyid) => {
+                    const allMyLotteryInfo = await mod.getAllMyLotteryInfo();
+                    let obj = JSON.parse(allMyLotteryInfo);
+                    delete obj[odyid];
+                    await Base.storage.set(myUID, JSON.stringify(obj));
+                    Tooltip.log(`本地移除dyid:${odyid}`);
+                    return;
+                },
+            };
+        return mod;
+    })()
     /**
      * 基础功能
      */
@@ -1446,12 +1453,12 @@
                  * 储存转发过的动态信息
                  */
                 for (let index = 0; index < cADynamic.length; index++) {
-                    const {type,dynamic_id,origin_dynamic_id,origin_description} = cADynamic[index];
+                    const {type,dynamic_id,origin_dynamic_id,origin_description,origin_uid} = cADynamic[index];
                     if (type === 1&& typeof origin_description !== 'undefined') {
-                        await GlobalVar.addLotteryInfo(dynamic_id,origin_dynamic_id,0)
+                        await GlobalVar.addLotteryInfo(dynamic_id,origin_dynamic_id,0,origin_uid)
                     }
                 }
-                this.clearDynamic();
+                await this.clearDynamic();
             }
         }
         /**
@@ -1472,8 +1479,6 @@
                         Tooltip.log('开始转发下一组动态');
                         eventBus.emit('Turn_on_the_Monitor');
                         return true;
-                    } else {
-                        void 0;
                     }
                 }
             }
@@ -1484,9 +1489,9 @@
         async clearDynamic() {
             const AllMyLotteryInfo = JSON.parse(await GlobalVar.getAllMyLotteryInfo());
             const keyArr = Object.keys(AllMyLotteryInfo);
-            if (keyArr.length > 800) {
-                Tooltip.log('已储存800条消息,开始删除最初转发的内容');
-                for (let i = 0; i < keyArr.length - 1500; i++) {
+            if (keyArr.length > 1000) {
+                Tooltip.log('已储存1000条消息,开始删除最初转发的内容');
+                for (let i = 0; i < keyArr.length - 1000; i++) {
                     let dyid = AllMyLotteryInfo[keyArr[i]][0];
                     GlobalVar.deleteLotteryInfo(keyArr[i]);
                     BiliAPI.rmDynamic(dyid);
@@ -1550,7 +1555,7 @@
                     /* 是否评论 */
                     isSendChat ? onelotteryinfo.rid = rid : void 0;
                     if (typeof onelotteryinfo.uid === 'undefined' && typeof onelotteryinfo.dyid === 'undefined') continue;
-                    await GlobalVar.addLotteryInfo('',dyid,ts);
+                    await GlobalVar.addLotteryInfo('',dyid,ts,uid);
                     alllotteryinfo.push(onelotteryinfo);
                 }
             }
@@ -1583,7 +1588,6 @@
                     BiliAPI.sendChat(rid, Base.getRandomStr(config.chat), type, true, dyid);
                 }
                 await Base.delay(Number(config.wait));
-                return;
             }
             return;
         }
@@ -2178,7 +2182,7 @@
                                 , AllMyLotteryInfo = JSON.parse(str);
                             for (const odyid in AllMyLotteryInfo) {
                                 if ({}.hasOwnProperty.call(AllMyLotteryInfo, odyid)) {
-                                    const [dyid, ts] = AllMyLotteryInfo[odyid];
+                                    const [dyid, ts, ouid] = AllMyLotteryInfo[odyid];
                                     if (ts === 0) {
                                         k++;
                                     } else {
@@ -2189,6 +2193,7 @@
                                             isMe === '中奖了！！！' ? alert(`恭喜！！！中奖了 前往https://t.bilibili.com/${dyid}查看`) : Tooltip.log('未中奖');
                                             Tooltip.log(`移除过期官方或非官方动态${dyid}`);
                                             BiliAPI.rmDynamic(dyid);
+                                            BiliAPI.cancelAttention(ouid);
                                             await GlobalVar.deleteLotteryInfo(odyid)
                                         }
                                     }
@@ -2573,7 +2578,7 @@
             eval(sjson.dynamicScript);/* 仅用于推送消息,请放心使用 */
             return [
                 {
-                    version: '|version: 3.7.9',
+                    version: '|version: 3.7.10',
                     author: '@shanmite',
                 },
                 sjson.config
