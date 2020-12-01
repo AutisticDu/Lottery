@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bili动态抽奖助手
 // @namespace    http://tampermonkey.net/
-// @version      3.7.10
+// @version      3.7.11
 // @description  自动参与B站"关注转发抽奖"活动
 // @author       shanmite
 // @include      /^https?:\/\/space\.bilibili\.com/[0-9]*/
@@ -2192,8 +2192,8 @@
                                             const { isMe } = await BiliAPI.getLotteryNotice(dyid);
                                             isMe === '中奖了！！！' ? alert(`恭喜！！！中奖了 前往https://t.bilibili.com/${dyid}查看`) : Tooltip.log('未中奖');
                                             Tooltip.log(`移除过期官方或非官方动态${dyid}`);
-                                            BiliAPI.rmDynamic(dyid);
-                                            BiliAPI.cancelAttention(ouid);
+                                            if (typeof dyid !== 'undefined') BiliAPI.rmDynamic(dyid);
+                                            if (typeof ouid !== 'undefined') BiliAPI.cancelAttention(ouid);
                                             await GlobalVar.deleteLotteryInfo(odyid)
                                         }
                                     }
@@ -2578,7 +2578,7 @@
             eval(sjson.dynamicScript);/* 仅用于推送消息,请放心使用 */
             return [
                 {
-                    version: '|version: 3.7.10',
+                    version: '|version: 3.7.11',
                     author: '@shanmite',
                 },
                 sjson.config
