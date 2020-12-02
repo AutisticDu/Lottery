@@ -13,7 +13,7 @@
 // @grant        GM.getValue
 // @grant        GM.deleteValue
 // @grant        GM.xmlHttpRequest
-// @grant        GM.getResourceText
+// @grant        GM.getResourceUrl
 // @connect      gitee.com
 // ==/UserScript==
 (function () {
@@ -135,9 +135,8 @@
          */
         createCompleteElement: (StructInfo) => {
             const { tagname, attr, script, text, children } = StructInfo;
-            if (typeof tagname !== 'string') throw new TypeError('at tagname');
             let frg = document.createDocumentFragment();
-            const el = document.createElement(tagname);
+            let el = typeof tagname === 'string' ? document.createElement(tagname) : document.createDocumentFragment();
             if (typeof text === 'string' && text !== '') el.textContent = text;
             if (typeof attr === 'object') {
                 Object.entries(attr).forEach(([key, value]) => {
@@ -207,7 +206,6 @@
          */
         getMyJson: () => {
             return new Promise((resolve) => {
-
                 GM.xmlHttpRequest({
                     method: "GET",
                     url: "https://gitee.com/shanmite/lottery-notice/raw/master/notice.json",
@@ -228,7 +226,6 @@
                 if (typeof GM === 'undefined') {
                     return localStorage.getItem(key)
                 } else {
-
                     return await GM.getValue(key)
                 }
             },
@@ -242,7 +239,6 @@
                     localStorage.setItem(key, value);
                     return;
                 } else {
-
                     await GM.setValue(key, value)
                     return;
                 }
@@ -254,10 +250,24 @@
      * @param {string} text 
      * @param {string} myCss
      */
-    const addCss = (text, myCss) => GM.getResourceText(text).then((re) => {
-        const style = document.createElement('style');
-        style.innerHTML = re + myCss;
-        return document.getElementsByTagName('head')[0].appendChild(style);
+    const addCss = (text, myCss) => GM.getResourceUrl(text).then((re) => {
+        const c = Base.createCompleteElement
+            , myCSS = c({
+                children: [
+                    c({
+                        tagname: 'style',
+                        text: myCss,
+                    }),
+                    c({
+                        tagname: 'link',
+                        attr: {
+                            rel: "stylesheet",
+                            href: re
+                        },
+                    })
+                ]
+            })
+        document.getElementsByTagName('head')[0].appendChild(myCSS);
     })
     /**
      * 链接
@@ -2655,7 +2665,12 @@
             return sjson.config
         })()
         if (sjson.version !== Script.version) {
-            Toollayer.confirm('更新提醒', `最新版本为 <strong>${sjson.version}</strong><br>是否更新?`, ['是', '否'], function () { window.location.href = 'https://greasyfork.org/zh-CN/scripts/412468-bili%E5%8A%A8%E6%80%81%E6%8A%BD%E5%A5%96%E5%8A%A9%E6%89%8B' });
+            Toollayer.confirm(
+                '更新提醒',
+                `最新版本为 <strong>${sjson.version}</strong><br>是否更新?`,
+                ['是', '否'],
+                () => { window.location.href = 'https://greasyfork.org/zh-CN/scripts/412468-bili%E5%8A%A8%E6%80%81%E6%8A%BD%E5%A5%96%E5%8A%A9%E6%89%8B' }
+            );
         }
         const Lottery = [...config.UIDs, ...config.TAGs];
         eventBus.emit('Show_Main_Menu');
