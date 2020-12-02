@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bili动态抽奖助手
 // @namespace    http://tampermonkey.net/
-// @version      3.7.12
+// @version      3.7.13
 // @description  自动参与B站"关注转发抽奖"活动
 // @author       shanmite
 // @include      /^https?:\/\/space\.bilibili\.com/[0-9]*/
@@ -18,7 +18,7 @@
 // ==/UserScript==
 (function () {
     "use strict"
-    let [Script, config, errorbar] = [{ version: `|version: ${GM.info.script.version}`, author: `@${GM.info.script.author}` }, {}, {}];
+    let [Script, config, errorbar] = [{ version: `|version: ${GM.info.script.version}`, author: `@${GM.info.script.author}`, name: GM.info.script.name }, {}, {}];
     /**
      * 基础工具
      */
@@ -352,11 +352,17 @@
             alert: (title, content) => {
                 layer.alert(content, { title: `<strong>${title}</strong>`, shade: 0, closeBtn: 0, offset: 't' });
             },
-            confirm: (title, content, btn, fn0 = function () { }, fn1 = function () { }, fn2 = function () { }) => {
-                layer.confirm(content, { title: `<strong>${title}</strong>`, btn: btn, shade: 0, closeBtn: 0, offset: 't' }, function (index) { return fn0(index); }, function (index) { return fn1(index); }, function (index) { return fn2(index) });
+            confirm: (title, content, btn, fn1 = function () { }, fn2 = function () { }, fn3 = function () { }) => {
+                layer.confirm(content,
+                    { title: `<strong>${title}</strong>`, btn: btn, shade: 0, closeBtn: 0, offset: 't', btn3: function (index) { layer.close(index); return fn3() } },
+                    function (index) { layer.close(index); return fn1() },
+                    function (index) { layer.close(index); return fn2() },
+                );
             },
             prompt: (title, formType, fn, value) => {
-                layer.prompt({ title: `<strong>${title}</strong>`, formType: formType, value: value }, function (value, index, elem) { return fn(value, index, elem); })
+                layer.prompt({ title: `<strong>${title}</strong>`, formType: formType, value: value },
+                    function (value, index) { layer.close(index); return fn(value) }
+                )
             },
             msg: (content, time = 2000, icon) => {
                 layer.msg(content, { time: time, icon: icon })
@@ -1646,7 +1652,7 @@
         }
         initUI() {
             const createCompleteElement = Base.createCompleteElement
-                , cssContent = ".shanmitemenu{position:fixed;z-index:99999;right:30px;top:90%}.shanmitemenu .icon{background-position:0 -8.375em;width:.425em;height:.4em;vertical-align:middle;display:inline-block;background-image:url(https://s1.hdslb.com/bfs/seed/bplus-common/icon/2.2.1/bp-svg-icon.svg);background-repeat:no-repeat;background-size:1em 23.225em;font-size:40px;font-style:italic}.shanmitemenu .show{position:relative;overflow:hidden;padding-left:0;line-height:30px;transition:.3s all .1s cubic-bezier(0,.53,.15,.99);cursor:pointer;color:#178bcf}.shanmitemenu .show:hover{padding-left:75px}.shanmitemenu .box{position:absolute;right:20px;bottom:30px;background-color:#e5f4fb;padding:5px;border-radius:5px;box-shadow:grey 0 0 10px 0;width:550px;height:550px}.shanmitemenu button{background-color:#23ade5;color:#fff;border-radius:4px;border:none;padding:5px;margin:4px;box-shadow:0 0 2px #00000075;line-height:14px}.shanmitemenu button:hover{background-color:#0e8bbd}.shanmitemenu .changetab{display:flex;-webkit-user-select:none}.shanmitemenu .changetab div{margin:0 0 0 10px;padding:3px;border-radius:6px;border:2px solid #26c6da;font-size:14px;cursor:pointer;transition:background-color .3s ease 0s;background-color:#87cfeb80}.shanmitemenu .changetab div:hover{background-color:skyblue}.shanmitemenu .changetab div:active{background-color:#17abe6;position:relative;top:1px}.shanmitemenu .tab{display:none;overflow:hidden;overflow-y:scroll;height:510px;margin:3px}.shanmitemenu .tab .card{font-size:15px;margin:15px;padding:5px;border-radius:5px;background-color:#ffffff;box-shadow:gray 0 0 4px 0}.shanmitemenu .bottom{display:flex;justify-content:flex-end;align-items:flex-end}.shanmitemenu .bottom button{margin-left:10px}"
+                , cssContent = ".shanmitemenu{position:fixed;z-index:99999;right:30px;top:90%}.shanmitemenu .icon{background-position:0 -8.375em;width:.425em;height:.4em;vertical-align:middle;display:inline-block;background-image:url(https://s1.hdslb.com/bfs/seed/bplus-common/icon/2.2.1/bp-svg-icon.svg);background-repeat:no-repeat;background-size:1em 23.225em;font-size:40px;font-style:italic}.shanmitemenu .show{position:relative;overflow:hidden;padding-left:0;line-height:30px;transition:.3s all .1s cubic-bezier(0,.53,.15,.99);cursor:pointer;color:#178bcf}.shanmitemenu .show:hover{padding-left:75px}.shanmitemenu .box{position:absolute;right:20px;bottom:30px;background-color:#e5f4fb;padding:5px;border-radius:5px;box-shadow:grey 0 0 10px 0;width:550px;height:550px}.shanmitemenu button{background-color:#23ade5;color:#fff;border-radius:4px;border:none;padding:5px;margin:4px;box-shadow:0 0 2px #00000075;line-height:14px}.shanmitemenu button:hover{background-color:#0e8bbd}.shanmitemenu button:focus{outline: 0;}.shanmitemenu .changetab{display:flex;-webkit-user-select:none}.shanmitemenu .changetab div{margin:0 0 0 10px;padding:3px;border-radius:6px;border:2px solid #26c6da;font-size:14px;cursor:pointer;transition:background-color .3s ease 0s;background-color:#87cfeb80}.shanmitemenu .changetab div:hover{background-color:skyblue}.shanmitemenu .changetab div:active{background-color:#17abe6;position:relative;top:1px}.shanmitemenu .tab{display:none;overflow:hidden;overflow-y:scroll;height:510px;margin:3px}.shanmitemenu .tab .card{font-size:15px;margin:15px;padding:5px;border-radius:5px;background-color:#ffffff;box-shadow:gray 0 0 4px 0}.shanmitemenu .bottom{display:flex;justify-content:flex-end;align-items:flex-end}.shanmitemenu .bottom button{margin-left:10px}"
                 , frg = createCompleteElement({
                     tagname: 'div',
                     attr: {
@@ -2244,10 +2250,8 @@
                         break;
                     case 'sudormdy':
                         (() => {
-                            Toollayer.confirm('是否进入强力清除模式', '请确认是否需要在白名单内填入不想移除的动态。<li>建议在关注数达到上限时使用本功能</li>', ['确定', '取消'], function (index) {
-                                layer.close(index);
-                                Toollayer.confirm('是否进入强力清除模式', '请再次确定', ['确定', '取消'], async function (index) {
-                                    layer.close(index);
+                            Toollayer.confirm('是否进入强力清除模式', '请确认是否需要在白名单内填入不想移除的动态。<li>建议在关注数达到上限时使用本功能</li>', ['确定', '取消'], function () {
+                                Toollayer.confirm('是否进入强力清除模式', '请再次确定', ['确定', '取消'], async function () {
                                     let offset = '0', time = 0, p1 = $.Deferred(), p2 = $.Deferred();
                                     const {
                                         day,
@@ -2255,7 +2259,6 @@
                                     } = rmdyForm;
                                     const _time = Date.now() / 1000 - Number(day.value) * 86400;
                                     async function delDynamic() {
-                                        console.log('delDynamic')
                                         for (let index = 0; index < 1000; index++) {
                                             const { allModifyDynamicResArray, offset: _offset } = await self.checkAllDynamic(GlobalVar.myUID, 1, Number(time) * 1000, offset);
                                             offset = _offset;
@@ -2280,7 +2283,6 @@
                                         p1.resolve();
                                     }
                                     async function unFollow() {
-                                        console.log('unFollow')
                                         const tagid = await BiliAPI.checkMyPartition();
                                         if (tagid === 0) { Tooltip.log('未能成功获取关注分区id'); return }
                                         let rmup = [];
@@ -2299,19 +2301,18 @@
                                     const promptTime = (fn) => Toollayer.prompt(
                                         '输入停顿时间(单位秒)',
                                         0,
-                                        (value, index) => {
+                                        (value) => {
                                             isNaN(value) ? (() => { Toollayer.msg('输入数据不是数字', 2000, 2) })()
                                                 : (() => { time = Number(value); fn(); })();
-                                            layer.close(index);
                                         }
                                     );
                                     Toollayer.confirm(
                                         '选择删除的内容',
                                         '移除动态和移除关注最好分开进行',
                                         ['只删除动态', '只移除关注', '删除动态并移除关注'],
-                                        index => { layer.close(index); p2.resolve(); promptTime(delDynamic) },
-                                        index => { layer.close(index); p1.resolve(); promptTime(unFollow) },
-                                        index => { layer.close(index); promptTime(() => { delDynamic(); unFollow() }) }
+                                        () => { p2.resolve(); promptTime(delDynamic) },
+                                        () => { p1.resolve(); promptTime(unFollow) },
+                                        () => { promptTime(() => { delDynamic(); unFollow() }) }
                                     );
                                     $.when(p1, p2).done(function () {
                                         Toollayer.confirm(
@@ -2323,7 +2324,7 @@
                                                     '是否清空本地存储',
                                                     '如果动态数量少于10条，请点击确定以清空本地存储。',
                                                     ['确定', '取消'],
-                                                    index => { layer.close(index); Base.storage.set(GlobalVar.myUID, '{}') }
+                                                    () => { Base.storage.set(GlobalVar.myUID, '{}') }
                                                 )
                                             }
                                         );
@@ -2598,10 +2599,10 @@
             return;
         }
         if (/(compatible|Trident)/.test(navigator.appVersion)) {
-            Toollayer.alert('Bili动态抽奖助手', '当前浏览器内核为IE内核,请使用非IE内核浏览器!');
+            Toollayer.alert(Script.name, '当前浏览器内核为IE内核,请使用非IE内核浏览器!');
             return;
         } else {
-            if (!/Chrome/.test(navigator.appVersion)) Toollayer.alert('Bili动态抽奖助手', '若出现问题请使用Chrome或Edge浏览器')
+            if (!/Chrome/.test(navigator.appVersion)) Toollayer.alert(Script.name, '若出现问题请使用Chrome或Edge浏览器')
         }
         /* 注册事件 */
         {
@@ -2654,7 +2655,7 @@
             return sjson.config
         })()
         if (sjson.version !== Script.version) {
-            Toollayer.confirm('更新提醒', `最新版本为 <strong>${sjson.version}</strong><br>是否更新?`, ['是', '否'], function (index) { layer.close(index); window.location.href = 'https://greasyfork.org/zh-CN/scripts/412468-bili%E5%8A%A8%E6%80%81%E6%8A%BD%E5%A5%96%E5%8A%A9%E6%89%8B' });
+            Toollayer.confirm('更新提醒', `最新版本为 <strong>${sjson.version}</strong><br>是否更新?`, ['是', '否'], function () { window.location.href = 'https://greasyfork.org/zh-CN/scripts/412468-bili%E5%8A%A8%E6%80%81%E6%8A%BD%E5%A5%96%E5%8A%A9%E6%89%8B' });
         }
         const Lottery = [...config.UIDs, ...config.TAGs];
         eventBus.emit('Show_Main_Menu');
