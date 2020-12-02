@@ -1,20 +1,24 @@
 // ==UserScript==
 // @name         Bili动态抽奖助手
 // @namespace    http://tampermonkey.net/
-// @version      3.7.11
+// @version      3.7.12
 // @description  自动参与B站"关注转发抽奖"活动
 // @author       shanmite
 // @include      /^https?:\/\/space\.bilibili\.com/[0-9]*/
 // @license      GPL
+// @require      https://cdn.bootcss.com/jquery/3.2.1/jquery.min.js
+// @require      https://cdn.jsdelivr.net/gh/shanmite/Lottery@3e4c90af6a6eff4afec30603e77014485c0df75b/lib/layer/layer.js
+// @resource     layerCss https://cdn.jsdelivr.net/gh/shanmite/Lottery@3e4c90af6a6eff4afec30603e77014485c0df75b/lib/layer/layer.css
 // @grant        GM.setValue
 // @grant        GM.getValue
 // @grant        GM.deleteValue
 // @grant        GM.xmlHttpRequest
+// @grant        GM.getResourceText
 // @connect      gitee.com
 // ==/UserScript==
 (function () {
     "use strict"
-    let [Script, config ,errorbar] = [{},{},{}];
+    let [Script, config, errorbar] = [{ version: `|version: ${GM.info.script.version}`, author: `@${GM.info.script.author}` }, {}, {}];
     /**
      * 基础工具
      */
@@ -85,7 +89,7 @@
          * @returns {string}
          */
         getRandomStr: arr => {
-            return arr[parseInt(Math.random()*arr.length)]
+            return arr[parseInt(Math.random() * arr.length)]
         },
         /**
          * 节流
@@ -177,7 +181,7 @@
                 }
                 return 0
             })(_date[1], _date[2])
-            if ( timestamp10 === 0) return {
+            if (timestamp10 === 0) return {
                 ts: 0,
                 text: `开奖时间: 未填写开奖时间`,
                 item: '请自行查看',
@@ -203,7 +207,7 @@
          */
         getMyJson: () => {
             return new Promise((resolve) => {
-                // eslint-disable-next-line no-undef
+
                 GM.xmlHttpRequest({
                     method: "GET",
                     url: "https://gitee.com/shanmite/lottery-notice/raw/master/notice.json",
@@ -220,11 +224,11 @@
              * @param {string} key
              * @returns {Promise<string>}
              */
-            get: async key=> {
+            get: async key => {
                 if (typeof GM === 'undefined') {
                     return localStorage.getItem(key)
                 } else {
-                    // eslint-disable-next-line no-undef
+
                     return await GM.getValue(key)
                 }
             },
@@ -233,40 +237,56 @@
              * @param {string} key
              * @param {string} value 
              */
-            set: async (key,value)=>{
+            set: async (key, value) => {
                 if (typeof GM === 'undefined') {
-                    localStorage.setItem(key,value);
+                    localStorage.setItem(key, value);
                     return;
                 } else {
-                    // eslint-disable-next-line no-undef
-                    await GM.setValue(key,value)
+
+                    await GM.setValue(key, value)
                     return;
                 }
             },
         }
     }
     /**
+     * 加载Css
+     * @param {string} text 
+     * @param {string} myCss
+     */
+    const addCss = (text, myCss) => GM.getResourceText(text).then((re) => {
+        const style = document.createElement('style');
+        style.innerHTML = re + myCss;
+        return document.getElementsByTagName('head')[0].appendChild(style);
+    })
+    /**
+     * 链接
+     * @param {string} link
+     * @param {string} msg
+     */
+    const linkMsg = (link, msg = link) => '<a href="' + link + 'target="_blank" style = "color:#00a1d6;text-decoration:underline;">' + msg + '</a>';
+    /**
      * 浮动提示框
      */
     const Tooltip = (() => {
         const createCompleteElement = Base.createCompleteElement,
-        cssContent = ".shanmitelogbox {z-index:99999;position:fixed;top:0;right:0;max-width:400px;max-height:600px;overflow-y:scroll;scroll-behavior:smooth;}.shanmitelogbox::-webkit-scrollbar {width:0;}.shanmitelogbox .line {display:flex;justify-content:flex-end;}.shanmitelogbox .Info {line-height:26px;min-height:26px;margin:6px 0;border-radius:6px;padding:0px 10px;transition:background-color 1s;font-size:16px;color:#fff;box-shadow:1px 1px 3px 0px #000;}.shanmitelogbox .Log {background-color:#81ec81;}.shanmitelogbox .Warn {background-color:#fd2d2d;}",
-        /** 显示运行日志 */
-        LogBox = createCompleteElement({
-            tagname: 'div',
-            attr: {
-                class: 'shanmitelogbox',
-            },
-            children: [
-                createCompleteElement({
-                    tagname: 'style',
-                    attr: {
-                        type: 'text/css'
-                    },
-                    text: cssContent,
-                })
-            ]
-        });
+            cssContent = ".shanmitelogbox {z-index:99999;position:fixed;top:0;right:0;max-width:400px;max-height:600px;overflow-y:scroll;scroll-behavior:smooth;}.shanmitelogbox::-webkit-scrollbar {width:0;}.shanmitelogbox .line {display:flex;justify-content:flex-end;}.shanmitelogbox .Info {line-height:26px;min-height:26px;margin:6px 0;border-radius:6px;padding:0px 10px;transition:background-color 1s;font-size:16px;color:#fff;box-shadow:1px 1px 3px 0px #000;}.shanmitelogbox .Log {background-color:#81ec81;}.shanmitelogbox .Warn {background-color:#fd2d2d;}",
+            /** 显示运行日志 */
+            LogBox = createCompleteElement({
+                tagname: 'div',
+                attr: {
+                    class: 'shanmitelogbox',
+                },
+                children: [
+                    createCompleteElement({
+                        tagname: 'style',
+                        attr: {
+                            type: 'text/css'
+                        },
+                        text: cssContent,
+                    })
+                ]
+            });
         document.body.appendChild(LogBox);
         const logbox = document.querySelector('.shanmitelogbox');
         /**
@@ -304,25 +324,45 @@
             });
             logbox.appendChild(log);
         },
-        mod = {
-            /**
-             * 提示信息
-             * @param {string} text 
-             */
-            log: text => {
-                console.log(text);
-                add('Info Log', text)
+            mod = {
+                /**
+                 * 提示信息
+                 * @param {string} text
+                 */
+                log: text => {
+                    console.log(text);
+                    add('Info Log', text)
+                },
+                /**
+                 * 警告信息
+                 * @param {string} text 
+                 */
+                warn: text => {
+                    console.warn(text);
+                    add('Info Warn', text)
+                }
+            }
+        return mod;
+    })()
+    /**
+     * 弹窗
+     */
+    const Toollayer = (() => {
+        const tools = {
+            alert: (title, content) => {
+                layer.alert(content, { title: `<strong>${title}</strong>`, shade: 0, closeBtn: 0, offset: 't' });
             },
-            /**
-             * 警告信息
-             * @param {string} text 
-             */
-            warn: text => {
-                console.warn(text);
-                add('Info Warn', text)
+            confirm: (title, content, btn, fn0 = function () { }, fn1 = function () { }, fn2 = function () { }) => {
+                layer.confirm(content, { title: `<strong>${title}</strong>`, btn: btn, shade: 0, closeBtn: 0, offset: 't' }, function (index) { return fn0(index); }, function (index) { return fn1(index); }, function (index) { return fn2(index) });
+            },
+            prompt: (title, formType, fn, value) => {
+                layer.prompt({ title: `<strong>${title}</strong>`, formType: formType, value: value }, function (value, index, elem) { return fn(value, index, elem); })
+            },
+            msg: (content, time = 2000, icon) => {
+                layer.msg(content, { time: time, icon: icon })
             }
         }
-        return mod;
+        return tools;
     })()
     /**
      * 事件总线
@@ -579,7 +619,7 @@
                 Ajax.get({
                     url: 'https://api.vc.bilibili.com/topic_svr/v1/topic_svr/topic_new',
                     queryStringsObj: {
-                        topic_id: tagid 
+                        topic_id: tagid
                     },
                     hasCookies: true,
                     success: responseText => {
@@ -614,7 +654,7 @@
          * @param {number} uid
          * @returns {Promise<number | 0>}
          */
-        getUserInfo: uid=>{
+        getUserInfo: uid => {
             return new Promise((resolve) => {
                 Ajax.get({
                     url: 'https://api.bilibili.com/x/web-interface/card',
@@ -684,7 +724,7 @@
                             })();
                             let isMeB = (new RegExp(GlobalVar.myUID)).test(responseText);
                             const isMe = isMeB ? '中奖了！！！' : '未中奖';
-                            const iteminfo = res.data.first_prize_cmt||''+'  '+res.data.second_prize_cmt||''+'  '+res.data.third_prize_cmt||'';
+                            const iteminfo = res.data.first_prize_cmt || '' + '  ' + res.data.second_prize_cmt || '' + '  ' + res.data.third_prize_cmt || '';
                             resolve({
                                 ts: timestamp10,
                                 text: `开奖时间: ${time.toLocaleString()} ${remain}`,
@@ -713,7 +753,7 @@
          * @returns {Promise<null>}
          */
         autoAttention: uid => {
-            return new Promise((resolve,reject) => {
+            return new Promise((resolve, reject) => {
                 Ajax.post({
                     url: 'https://api.bilibili.com/x/relation/modify',
                     hasCookies: true,
@@ -755,11 +795,11 @@
                                                 style: "display: block;",
                                                 title: '点击访问5s后自动移除'
                                             },
-                                            script: (el)=>{
-                                                el.addEventListener('click',()=>{
-                                                    setTimeout(()=>{
+                                            script: (el) => {
+                                                el.addEventListener('click', () => {
+                                                    setTimeout(() => {
                                                         el.parentNode.removeChild(el);
-                                                    },5000)
+                                                    }, 5000)
                                                 })
                                             },
                                             text: `未成功关注的up|uid:${uid}`
@@ -778,7 +818,7 @@
          * @param {number} uid
          * @param {number} tagid 关注分区的ID
          */
-        movePartition: (uid,tagid) => {
+        movePartition: (uid, tagid) => {
             Ajax.post({
                 url: 'https://api.bilibili.com/x/relation/tags/addUsers?cross_domain=true',
                 hasCookies: true,
@@ -804,7 +844,7 @@
          * @param {number} n 1->
          * @returns {Promise<number[]>}
          */
-        getPartitionUID: (tagid,n) =>{
+        getPartitionUID: (tagid, n) => {
             return new Promise((resolve) => {
                 Ajax.get({
                     url: 'https://api.bilibili.com/x/relation/tag',
@@ -1100,9 +1140,9 @@
      * 贮存全局变量
      */
     const GlobalVar = (() => {
-        const [myUID,csrf] = (()=>{
+        const [myUID, csrf] = (() => {
             const a = /((?<=DedeUserID=)\d+).*((?<=bili_jct=)\w+)/g.exec(document.cookie);
-            return [a[1],a[2]]
+            return [a[1], a[2]]
         })(),
             mod = {
                 /**自己的UID*/
@@ -1120,7 +1160,7 @@
                         let alldy = (await Public.prototype.checkAllDynamic(myUID, 50)).allModifyDynamicResArray;
                         let obj = {};
                         for (let index = 0; index < alldy.length; index++) {
-                            const { dynamic_id, origin_dynamic_id ,origin_uid} = alldy[index];
+                            const { dynamic_id, origin_dynamic_id, origin_uid } = alldy[index];
                             if (typeof origin_dynamic_id === 'string') {
                                 obj[origin_dynamic_id] = [dynamic_id, 0, origin_uid]
                             }
@@ -1169,7 +1209,7 @@
      * 基础功能
      */
     class Public {
-        constructor() {}
+        constructor() { }
         /**
          * 检查所有的动态信息
          * @param {string} UID
@@ -1217,7 +1257,7 @@
             let allModifyDynamicResArray = [];
             let offset = _offset;
             for (let i = 0; i < pages; i++) {
-                Tooltip.log(`正在读取第${i+1}页动态`);
+                Tooltip.log(`正在读取第${i + 1}页动态`);
                 let OneDynamicInfo = await hadUidGetOneDynamicInfoByUID(offset);
                 const mDRdata = mDR(OneDynamicInfo);
                 if (mDRdata === null) {
@@ -1231,11 +1271,11 @@
                     nextinfo = mDRdata.nextinfo;
                 if (nextinfo.has_more === 0) {
                     offset = nextinfo.next_offset;
-                    Tooltip.log(`成功读取${i+1}页信息(已经是最后一页了故无法读取更多)`);
+                    Tooltip.log(`成功读取${i + 1}页信息(已经是最后一页了故无法读取更多)`);
                     break;
                 } else {
                     allModifyDynamicResArray.push.apply(allModifyDynamicResArray, mDRArry);
-                    i + 1 < pages ? Tooltip.log(`开始读取第${i+2}页动态信息`) : Tooltip.log(`${pages}页信息全部成功读取完成`);
+                    i + 1 < pages ? Tooltip.log(`开始读取第${i + 2}页动态信息`) : Tooltip.log(`${pages}页信息全部成功读取完成`);
                     offset = nextinfo.next_offset;
                 }
                 await Base.delay(time);
@@ -1272,10 +1312,10 @@
             } | null
         } 返回对象,默认为null
          */
-        modifyDynamicRes (res){
+        modifyDynamicRes(res) {
             const strToJson = Base.strToJson,
                 jsonRes = strToJson(res),
-                {data} = jsonRes;
+                { data } = jsonRes;
             if (jsonRes.code !== 0) {
                 Tooltip.warn('获取动态数据出错,可能是访问太频繁');
                 return null;
@@ -1300,8 +1340,8 @@
                 Cards.forEach(onecard => {
                     /**临时储存单个动态中的信息 */
                     let obj = {};
-                    const {desc,card} = onecard
-                        , {info} = desc.user_profile
+                    const { desc, card } = onecard
+                        , { info } = desc.user_profile
                         , cardToJson = strToJson(card);
                     obj.uid = info.uid; /* 转发者的UID */
                     obj.uname = info.uname;/* 转发者的name */
@@ -1310,7 +1350,7 @@
                     obj.type = desc.type /* 动态类型 */
                     obj.orig_type = desc.orig_type /* 源动态类型 */
                     obj.dynamic_id = desc.dynamic_id_str; /* 转发者的动态ID !!!!此为大数需使用字符串值,不然JSON.parse()会有丢失精度 */
-                    const {extension} = onecard;
+                    const { extension } = onecard;
                     obj.hasOfficialLottery = (typeof extension === 'undefined') ? false : typeof extension.lott === 'undefined' ? false : true; /* 是否有官方抽奖 */
                     const item = cardToJson.item || {};
                     obj.description = item.content || item.description || ''; /* 转发者的描述 */
@@ -1318,7 +1358,7 @@
                         obj.origin_uid = desc.origin.uid; /* 被转发者的UID */
                         obj.origin_rid_str = desc.origin.rid_str /* 被转发者的rid(用于发评论) */
                         obj.origin_dynamic_id = desc.orig_dy_id_str; /* 被转发者的动态的ID !!!!此为大数需使用字符串值,不然JSON.parse()会有丢失精度 */
-                        const { origin_extension } = cardToJson ;
+                        const { origin_extension } = cardToJson;
                         obj.origin_hasOfficialLottery = typeof origin_extension === 'undefined' ? false : typeof origin_extension.lott === 'undefined' ? false : true; /* 是否有官方抽奖 */
                         const origin = cardToJson.origin || '{}';
                         const { user, item } = strToJson(origin);
@@ -1354,17 +1394,17 @@
                 tag_id = await BiliAPI.getTagIDByTagName(tag_name),
                 hotdy = await BiliAPI.getHotDynamicInfoByTagID(tag_id),
                 modDR = self.modifyDynamicRes(hotdy);
-            if(modDR === null) return null;
+            if (modDR === null) return null;
             Tooltip.log(`开始获取带话题#${tag_name}#的动态信息`);
             let mDRdata = modDR.modifyDynamicResArray; /* 热门动态 */
             let next_offset = modDR.nextinfo.next_offset;
             for (let index = 0; index < 3; index++) {
-                const newdy = await BiliAPI.getOneDynamicInfoByTag(tag_name,next_offset);
+                const newdy = await BiliAPI.getOneDynamicInfoByTag(tag_name, next_offset);
                 const _modify = self.modifyDynamicRes(newdy);
                 mDRdata.push.apply(mDRdata, _modify.modifyDynamicResArray);
                 next_offset = _modify.nextinfo.next_offset;
             }
-            const fomatdata = mDRdata.map(o=>{
+            const fomatdata = mDRdata.map(o => {
                 const hasOrigin = o.type === 1
                 return {
                     uid: o.uid,
@@ -1400,10 +1440,10 @@
             const self = this,
                 dy = await BiliAPI.getOneDynamicInfoByUID(UID, 0),
                 modDR = self.modifyDynamicRes(dy);
-            if(modDR === null) return null;
+            if (modDR === null) return null;
             Tooltip.log(`成功获取用户${UID}的动态信息`);
             const mDRdata = modDR.modifyDynamicResArray,
-                _fomatdata = mDRdata.map(o=>{
+                _fomatdata = mDRdata.map(o => {
                     return {
                         uid: o.origin_uid,
                         dyid: o.origin_dynamic_id,
@@ -1453,9 +1493,9 @@
                  * 储存转发过的动态信息
                  */
                 for (let index = 0; index < cADynamic.length; index++) {
-                    const {type,dynamic_id,origin_dynamic_id,origin_description,origin_uid} = cADynamic[index];
-                    if (type === 1&& typeof origin_description !== 'undefined') {
-                        await GlobalVar.addLotteryInfo(dynamic_id,origin_dynamic_id,0,origin_uid)
+                    const { type, dynamic_id, origin_dynamic_id, origin_description, origin_uid } = cADynamic[index];
+                    if (type === 1 && typeof origin_description !== 'undefined') {
+                        await GlobalVar.addLotteryInfo(dynamic_id, origin_dynamic_id, 0, origin_uid)
                     }
                 }
                 await this.clearDynamic();
@@ -1469,7 +1509,7 @@
             const allLottery = await this.filterLotteryInfo();
             const len = allLottery.length;
             let index = 0;
-            if(len === 0){
+            if (len === 0) {
                 eventBus.emit('Turn_on_the_Monitor');
                 return false;
             } else {
@@ -1511,12 +1551,12 @@
         async filterLotteryInfo() {
             const self = this,
                 protoLotteryInfo = typeof self.UID === 'number' ? await self.getLotteryInfoByUID(self.UID) : await self.getLotteryInfoByTag(self.tag_name);
-            if(protoLotteryInfo === null) return [];
+            if (protoLotteryInfo === null) return [];
             let alllotteryinfo = [];
-            const {model,chatmodel,maxday:_maxday,minfollower,blockword,blacklist} = config;
-            const maxday = _maxday === '-1'||_maxday === '' ? Infinity : (Number(_maxday) * 86400);
+            const { model, chatmodel, maxday: _maxday, minfollower, blockword, blacklist } = config;
+            const maxday = _maxday === '-1' || _maxday === '' ? Infinity : (Number(_maxday) * 86400);
             for (const info of protoLotteryInfo) {
-                const {uid,dyid,befilter,rid,des,type,hasOfficialLottery} = info;
+                const { uid, dyid, befilter, rid, des, type, hasOfficialLottery } = info;
                 let onelotteryinfo = {};
                 let isLottery = false;
                 let isSendChat = false;
@@ -1530,22 +1570,22 @@
                     if (isBlock) break;
                 }
                 if (isBlock) continue;
-                if(hasOfficialLottery && model[0] === '1') {
+                if (hasOfficialLottery && model[0] === '1') {
                     const oneLNotice = await BiliAPI.getLotteryNotice(dyid);
                     ts = oneLNotice.ts;
                     isLottery = ts > (Date.now() / 1000) && ts < maxday;
                     isSendChat = chatmodel[0] === '1';
-                }else if(!hasOfficialLottery&& model[1] === '1') {
+                } else if (!hasOfficialLottery && model[1] === '1') {
                     const followerNum = await BiliAPI.getUserInfo(uid);
                     if (followerNum < Number(minfollower)) continue;
                     ts = Base.getLotteryNotice(description).ts;
                     isLottery = /[关转]/.test(description) && !befilter && (ts === 0 || (ts > (Date.now() / 1000) && ts < (Date.now() / 1000) + maxday));
                     isSendChat = chatmodel[1] === '1';
                 }
-                if(isLottery) {
+                if (isLottery) {
                     const reg1 = new RegExp(uid);
                     const reg2 = new RegExp(dyid);
-                    if (reg1.test(blacklist)||reg2.test(blacklist)) continue;
+                    if (reg1.test(blacklist) || reg2.test(blacklist)) continue;
                     /* 判断是否关注过 */
                     reg1.test(self.attentionList) ? void 0 : onelotteryinfo.uid = uid;
                     /* 判断是否转发过 */
@@ -1555,7 +1595,7 @@
                     /* 是否评论 */
                     isSendChat ? onelotteryinfo.rid = rid : void 0;
                     if (typeof onelotteryinfo.uid === 'undefined' && typeof onelotteryinfo.dyid === 'undefined') continue;
-                    await GlobalVar.addLotteryInfo('',dyid,ts,uid);
+                    await GlobalVar.addLotteryInfo('', dyid, ts, uid);
                     alllotteryinfo.push(onelotteryinfo);
                 }
             }
@@ -1578,13 +1618,13 @@
                 BiliAPI.autoRelay(GlobalVar.myUID, dyid);
                 BiliAPI.autolike(dyid);
                 if (typeof uid === 'number') {
-                    BiliAPI.autoAttention(uid).then(()=>{
-                        BiliAPI.movePartition(uid,this.tagid)
-                    },()=>{
+                    BiliAPI.autoAttention(uid).then(() => {
+                        BiliAPI.movePartition(uid, this.tagid)
+                    }, () => {
                         Tooltip.warn('未关注无法移动分区');
                     })
                 }
-                if (typeof rid === 'string'&& type !== 0) {
+                if (typeof rid === 'string' && type !== 0) {
                     BiliAPI.sendChat(rid, Base.getRandomStr(config.chat), type, true, dyid);
                 }
                 await Base.delay(Number(config.wait));
@@ -1595,7 +1635,7 @@
     /**
      * 主菜单
      */
-    class MainMenu extends Public{
+    class MainMenu extends Public {
         constructor() {
             super();
             this.offset = '0';
@@ -1606,7 +1646,7 @@
         }
         initUI() {
             const createCompleteElement = Base.createCompleteElement
-                , cssContent = ".shanmitemenu {position:fixed;z-index:99999;right:30px;top:90%;}.shanmitemenu .icon {background-position:0em -8.375em;width:0.425em;height:0.4em;vertical-align:middle;display:inline-block;background-image:url(https://s1.hdslb.com/bfs/seed/bplus-common/icon/2.2.1/bp-svg-icon.svg);background-repeat:no-repeat;background-size:1em 23.225em;font-size:40px;font-style:italic;}.shanmitemenu .show {position:relative;overflow:hidden;padding-left:0px;line-height:30px;transition:0.3s all 0.1s cubic-bezier(0, 0.53, 0.15, 0.99);cursor:pointer;color:#178bcf;}.shanmitemenu .show:hover {padding-left:75px;}.shanmitemenu .box {position:absolute;right:20px;bottom:30px;background-color:#E5F4FB;padding:5px;border-radius:5px;box-shadow:grey 0px 0px 10px 0px;width:550px;height:550px;}.shanmitemenu button {font-size:14px;padding:0 5px;}.shanmitemenu .changetab {display:flex;-webkit-user-select:none;}.shanmitemenu .changetab div {margin:0 0 0 10px;padding:3px;border-radius:6px;border:2px solid #26c6da;font-size:14px;cursor:pointer;transition:background-color .3s ease 0s;background-color:#87cfeb80;}.shanmitemenu .changetab div:hover {background-color:skyblue;}.shanmitemenu .tab {display:none;overflow:hidden;overflow-y:scroll;height:510px;margin:3px;}.shanmitemenu .tab .card {font-size:15px;margin:15px;padding:5px;border-radius:5px;background-color:#ffffff ;box-shadow:gray 0px 0px 4px 0px;}.shanmitemenu .bottom {display:flex;justify-content:flex-end;align-items:flex-end;}.shanmitemenu .bottom button{margin-left:10px;}"
+                , cssContent = ".shanmitemenu{position:fixed;z-index:99999;right:30px;top:90%}.shanmitemenu .icon{background-position:0 -8.375em;width:.425em;height:.4em;vertical-align:middle;display:inline-block;background-image:url(https://s1.hdslb.com/bfs/seed/bplus-common/icon/2.2.1/bp-svg-icon.svg);background-repeat:no-repeat;background-size:1em 23.225em;font-size:40px;font-style:italic}.shanmitemenu .show{position:relative;overflow:hidden;padding-left:0;line-height:30px;transition:.3s all .1s cubic-bezier(0,.53,.15,.99);cursor:pointer;color:#178bcf}.shanmitemenu .show:hover{padding-left:75px}.shanmitemenu .box{position:absolute;right:20px;bottom:30px;background-color:#e5f4fb;padding:5px;border-radius:5px;box-shadow:grey 0 0 10px 0;width:550px;height:550px}.shanmitemenu button{background-color:#23ade5;color:#fff;border-radius:4px;border:none;padding:5px;margin:4px;box-shadow:0 0 2px #00000075;line-height:14px}.shanmitemenu button:hover{background-color:#0e8bbd}.shanmitemenu .changetab{display:flex;-webkit-user-select:none}.shanmitemenu .changetab div{margin:0 0 0 10px;padding:3px;border-radius:6px;border:2px solid #26c6da;font-size:14px;cursor:pointer;transition:background-color .3s ease 0s;background-color:#87cfeb80}.shanmitemenu .changetab div:hover{background-color:skyblue}.shanmitemenu .changetab div:active{background-color:#17abe6;position:relative;top:1px}.shanmitemenu .tab{display:none;overflow:hidden;overflow-y:scroll;height:510px;margin:3px}.shanmitemenu .tab .card{font-size:15px;margin:15px;padding:5px;border-radius:5px;background-color:#ffffff;box-shadow:gray 0 0 4px 0}.shanmitemenu .bottom{display:flex;justify-content:flex-end;align-items:flex-end}.shanmitemenu .bottom button{margin-left:10px}"
                 , frg = createCompleteElement({
                     tagname: 'div',
                     attr: {
@@ -1843,7 +1883,7 @@
                                                     children: [
                                                         createCompleteElement({
                                                             tagname: 'p',
-                                                            text: '当前版本'+Script.version+Script.author,
+                                                            text: '当前版本' + Script.version + Script.author,
                                                         }),
                                                         createCompleteElement({
                                                             tagname: 'a',
@@ -1867,7 +1907,7 @@
                                                                         type: 'checkbox',
                                                                         name: 'model'
                                                                     },
-                                                                    script: el=>{
+                                                                    script: el => {
                                                                         config.model[0] === '1' ? el.checked = 'checked' : void 0;
                                                                     }
                                                                 })
@@ -1883,7 +1923,7 @@
                                                                         type: 'checkbox',
                                                                         name: 'model'
                                                                     },
-                                                                    script: el=>{
+                                                                    script: el => {
                                                                         config.model[1] === '1' ? el.checked = 'checked' : void 0;
                                                                     }
                                                                 })
@@ -1924,7 +1964,7 @@
                                                                 })
                                                             ]
                                                         }),
-                                                        
+
                                                         createCompleteElement({
                                                             tagname: 'p',
                                                             text: '开奖时间(默认-1:不限):',
@@ -2119,9 +2159,9 @@
                 'scroll',
                 Base.throttle(async (ev) => {
                     const tab = ev.target;
-                    if(tab.scrollHeight - tab.scrollTop <= 310 && self.offset !=='-1')
+                    if (tab.scrollHeight - tab.scrollTop <= 310 && self.offset !== '-1')
                         await self.sortInfoAndShow();
-                },1000)
+                }, 1000)
             );
             shanmitemenu.addEventListener('click', ev => {
                 const id = ev.target.id;
@@ -2167,7 +2207,7 @@
                             childcard.forEach(card => {
                                 infotab.removeChild(card);
                             });
-                            (async function autoscroll(){
+                            (async function autoscroll() {
                                 await self.sortInfoAndShow();
                                 await Base.delay(1000);
                                 if (self.offset !== '-1')
@@ -2177,7 +2217,7 @@
                         break;
                     case 'rmdy':
                         (async () => {
-                            let [i,j,k] = [0,0,0];
+                            let [i, j, k] = [0, 0, 0];
                             const str = await GlobalVar.getAllMyLotteryInfo()
                                 , AllMyLotteryInfo = JSON.parse(str);
                             for (const odyid in AllMyLotteryInfo) {
@@ -2190,7 +2230,7 @@
                                         if (ts < (Date.now() / 1000)) {
                                             j++;
                                             const { isMe } = await BiliAPI.getLotteryNotice(dyid);
-                                            isMe === '中奖了！！！' ? alert(`恭喜！！！中奖了 前往https://t.bilibili.com/${dyid}查看`) : Tooltip.log('未中奖');
+                                            isMe === '中奖了！！！' ? Toollayer.alert('恭喜！！！中奖了', `前往 ${linkMsg(`https://t.bilibili.com/${dyid}`)} 查看。`) : Tooltip.log('未中奖');
                                             Tooltip.log(`移除过期官方或非官方动态${dyid}`);
                                             if (typeof dyid !== 'undefined') BiliAPI.rmDynamic(dyid);
                                             if (typeof ouid !== 'undefined') BiliAPI.cancelAttention(ouid);
@@ -2199,65 +2239,70 @@
                                     }
                                 }
                             }
-                            alert(`清理动态完毕\n共查看${i + k}条动态\n能识别开奖时间的:共${i}条 过期${j}条 未开奖${i - j}条\n`);
+                            Toollayer.alert('清理动态完毕', `<li>共查看<code>${i + k}</code>条动态</li><li>能识别开奖时间的:共<code>${i}</code>条 过期<code>${j}</code>条 未开奖<code>${i - j}</code>条</li>`);
                         })()
                         break;
                     case 'sudormdy':
-                        (async () => {
-                            const isKillAll = confirm('是否进入强力清除模式(建议在关注数达到上限时使用)\n请确认是否需要在白名单内填入不想移除的动态');
-                            if (isKillAll) {
-                                if (!confirm('请再次确定')) return;
-                                const a = prompt('只删除动态请输入"1"\n只移除关注请输入"2"\n全选请输入"3"\n移除动态和移除关注最好分开进行');
-                                const time = prompt('停顿时间(单位秒)');
-                                const {
-                                    day,
-                                    page
-                                } = rmdyForm;
-                                let offset = '0';
-                                const _time = Date.now()/1000 - Number(day.value)*86400;
-                                if (a === "1" || a === "3") {
-                                    for (let index = 0; index < 1000; index++) {
-                                        const { allModifyDynamicResArray, offset: _offset } = await self.checkAllDynamic(GlobalVar.myUID, 1, Number(time) * 1000, offset);
-                                        offset = _offset;
-                                        if (index < Number(page.value)) {
-                                            Tooltip.log(`跳过第${index}页(12条)`);
-                                        } else {
-                                            Tooltip.log(`开始读取第${index}页(12条)`);
-                                            for (let index = 0; index < allModifyDynamicResArray.length; index++) {
-                                                const res = allModifyDynamicResArray[index];
-                                                const { type, createtime, dynamic_id } = res;
-                                                if (type === 1) {
-                                                    const reg1 = new RegExp(dynamic_id);
-                                                    if (createtime < _time) {
-                                                        !reg1.test(config.whitelist) ? BiliAPI.rmDynamic(dynamic_id) : void 0;
+                        (() => {
+                            Toollayer.confirm('是否进入强力清除模式', '请确认是否需要在白名单内填入不想移除的动态。<li>建议在关注数达到上限时使用本功能</li>', ['确定', '取消'], function (index) {
+                                layer.close(index);
+                                Toollayer.confirm('是否进入强力清除模式', '请再次确定', ['确定', '取消'], async function (index) {
+                                    layer.close(index);
+                                    let offset = '0', time = 1, p1 = $.Deferred(), p2 = $.Deferred();
+                                    const {
+                                        day,
+                                        page
+                                    } = rmdyForm;
+                                    const _time = Date.now() / 1000 - Number(day.value) * 86400;
+                                    async function delDynamic() {
+                                        console.log('delDynamic')
+                                        for (let index = 0; index < 1000; index++) {
+                                            const { allModifyDynamicResArray, offset: _offset } = await self.checkAllDynamic(GlobalVar.myUID, 1, Number(time) * 1000, offset);
+                                            offset = _offset;
+                                            if (index < Number(page.value)) {
+                                                Tooltip.log(`跳过第${index}页(12条)`);
+                                            } else {
+                                                Tooltip.log(`开始读取第${index}页(12条)`);
+                                                for (let index = 0; index < allModifyDynamicResArray.length; index++) {
+                                                    const res = allModifyDynamicResArray[index];
+                                                    const { type, createtime, dynamic_id } = res;
+                                                    if (type === 1) {
+                                                        const reg1 = new RegExp(dynamic_id);
+                                                        if (createtime < _time) {
+                                                            !reg1.test(config.whitelist) ? BiliAPI.rmDynamic(dynamic_id) : void 0;
+                                                        }
                                                     }
                                                 }
+                                                Tooltip.log(`第${index}页中的转发动态全部删除成功`)
                                             }
-                                            Tooltip.log(`第${index}页中的转发动态全部删除成功`)
+                                            if (offset === '0') break;
                                         }
-                                        if (offset === '0') break;
+                                        p1.resolve();
                                     }
-                                }
-                                if (a === "2"|| a === "3") {
-                                    const tagid = await BiliAPI.checkMyPartition();
-                                    if (tagid === 0) { Tooltip.log('未能成功获取关注分区id'); return }
-                                    let rmup = [];
-                                    for (let index = 1; index < 42; index++) {
-                                        const uids = await BiliAPI.getPartitionUID(tagid, index);
-                                        rmup.push(...uids);
-                                        if (uids.length === 0) break;
+                                    async function unFollow() {
+                                        console.log('unFollow')
+                                        const tagid = await BiliAPI.checkMyPartition();
+                                        if (tagid === 0) { Tooltip.log('未能成功获取关注分区id'); return }
+                                        let rmup = [];
+                                        for (let index = 1; index < 42; index++) {
+                                            const uids = await BiliAPI.getPartitionUID(tagid, index);
+                                            rmup.push(...uids);
+                                            if (uids.length === 0) break;
+                                        }
+                                        for (let index = 0; index < rmup.length; index++) {
+                                            const uid = rmup[index];
+                                            BiliAPI.cancelAttention(uid);
+                                            await Base.delay(Number(time) * 1000);
+                                        }
+                                        p2.resolve();
                                     }
-                                    for (let index = 0; index < rmup.length; index++) {
-                                        const uid = rmup[index];
-                                        BiliAPI.cancelAttention(uid);
-                                        await Base.delay(Number(time) * 1000);
-                                    }
-                                }
-                                alert('成功清除,感谢使用');
-                                if (confirm('如果动态数量少于10条请点击确定以清空本地存储')) {
-                                    Base.storage.set(GlobalVar.myUID, '{}');
-                                }
-                            }
+                                    const promptTime = (fn) => Toollayer.prompt('输入停顿时间(单位秒)', 0, function (value, index) { isNaN(value) ? function () { Toollayer.msg('输入数据不是数字', 2000, 2) }() : (() => { time = Number(value); fn(); })(); layer.close(index); });
+                                    Toollayer.confirm('选择删除的内容', '移除动态和移除关注最好分开进行', ['只删除动态', '只移除关注', '删除动态并移除关注'], function (index) { layer.close(index); p2.resolve(); promptTime(delDynamic) }, function (index) { layer.close(index); p1.resolve(); promptTime(unFollow) }, function (index) { layer.close(index); promptTime(function () { delDynamic(); unFollow() }) });
+                                    $.when(p1, p2).done(function () {
+                                        Toollayer.confirm('清除成功', '成功清除，感谢使用', ['确定'], function () { Toollayer.confirm('是否清空本地存储', '如果动态数量少于10条，请点击确定以清空本地存储。', ['确定', '取消'], function (index) { layer.close(index); Base.storage.set(GlobalVar.myUID, '{}') }) });
+                                    });
+                                }, function () { Toollayer.msg('已取消') })
+                            })
                         })()
                         break;
                     case 'save': {
@@ -2339,7 +2384,7 @@
                 return b.ts - a.ts;
             })
             protoArr.forEach(one => {
-                if (one.ts === 0||one.ts > Date.now() / 1000) {
+                if (one.ts === 0 || one.ts > Date.now() / 1000) {
                     self.creatLotteryDetailInfo(one, 'color:green;')
                 } else {
                     self.creatLotteryDetailInfo(one, 'color:red;')
@@ -2403,7 +2448,7 @@
             let elemarray = [];
             for (let one of arr) {
                 let LotteryNotice = one.origin_hasOfficialLottery
-                    ? await BiliAPI.getLotteryNotice(one.origin_dynamic_id) 
+                    ? await BiliAPI.getLotteryNotice(one.origin_dynamic_id)
                     : Base.getLotteryNotice(one.origin_description);
                 LotteryNotice.origin_description = one.origin_description;
                 LotteryNotice.dynamic_id = one.dynamic_id;/* 用于删除动态 */
@@ -2416,7 +2461,7 @@
         }
         async getNextDynamic() {
             const self = this;
-            const {allModifyDynamicResArray, offset} = await self.checkAllDynamic(GlobalVar.myUID,5,200,this.offset);
+            const { allModifyDynamicResArray, offset } = await self.checkAllDynamic(GlobalVar.myUID, 5, 200, this.offset);
             if (offset === '0') {
                 self.offset = '-1';
             } else {
@@ -2440,7 +2485,7 @@
             }
         } info
          */
-        creatLotteryDetailInfo(info,color) {
+        creatLotteryDetailInfo(info, color) {
             const createCompleteElement = Base.createCompleteElement
                 , infocards = document.querySelector('.tab.info')
                 , LotteryDetailInfo = createCompleteElement({
@@ -2454,7 +2499,7 @@
                             attr: {
                                 style: 'color:#fb7299;'
                             },
-                            text: info.origin_uname+':',
+                            text: info.origin_uname + ':',
                         }),
                         createCompleteElement({
                             tagname: 'p',
@@ -2476,19 +2521,19 @@
                             attr: {
                                 style: 'color:#ffa726;'
                             },
-                            text: '奖品:'+info.item
+                            text: '奖品:' + info.item
                         }),
                         createCompleteElement({
                             tagname: 'span',
                             attr: {
                                 style: 'color:green;'
                             },
-                            text: info.isMe+'   '
+                            text: info.isMe + '   '
                         }),
                         createCompleteElement({
                             tagname: 'a',
                             attr: {
-                                href: 'https://t.bilibili.com/'+info.origin_dynamic_id,
+                                href: 'https://t.bilibili.com/' + info.origin_dynamic_id,
                                 target: '_blank'
                             },
                             text: '查看详情'
@@ -2518,22 +2563,23 @@
     }
     /**主函数 */
     (async function main() {
+        await addCss('layerCss', 'code{padding:.2em .4em;margin:0;font-size:85%;background-color:rgb(27 31 35 / 5%);border-radius:6px}');
         if (/(?<=space\.bilibili\.com\/)[0-9]*(?=\/?)/.exec(window.location.href)[0] !== GlobalVar.myUID) {
             Tooltip.log(document.title);
             return;
         }
         if (/(compatible|Trident)/.test(navigator.appVersion)) {
-            alert('[Bili动态抽奖助手]当前浏览器内核为IE内核,请使用非IE内核浏览器!');
+            Toollayer.alert('Bili动态抽奖助手', '当前浏览器内核为IE内核,请使用非IE内核浏览器!');
             return;
         } else {
-            if (!/Chrome/.test(navigator.appVersion)) alert('[Bili动态抽奖助手]出现问题请使用Chrome或Edge浏览器')
+            if (!/Chrome/.test(navigator.appVersion)) Toollayer.alert('Bili动态抽奖助手', '若出现问题请使用Chrome或Edge浏览器')
         }
         /* 注册事件 */
-        { 
+        {
             {
                 let i = 0;
                 eventBus.on('Turn_on_the_Monitor', () => {
-                    if (Lottery.length === 0) {Tooltip.log('抽奖信息为空');return}
+                    if (Lottery.length === 0) { Tooltip.log('抽奖信息为空'); return }
                     if (i === Lottery.length) {
                         Tooltip.log('所有动态转发完毕');
                         Tooltip.log('[运行结束]目前无抽奖信息,过一会儿再来看看吧');
@@ -2574,21 +2620,14 @@
         }
         await GlobalVar.getAllMyLotteryInfo();/* 转发信息初始化 */
         const sjson = await Base.getMyJson(); /* 默认设置 */
-        [ Script, config ] = (() => {
+        config = (() => {
             eval(sjson.dynamicScript);/* 仅用于推送消息,请放心使用 */
-            return [
-                {
-                    version: '|version: 3.7.11',
-                    author: '@shanmite',
-                },
-                sjson.config
-            ]
+            return sjson.config
         })()
         if (sjson.version !== Script.version) {
-            const isupdate = confirm(`[更新提醒]最新版本为${sjson.version}\n是否更新?`);
-            isupdate ? window.location.href = 'https://greasyfork.org/zh-CN/scripts/412468-bili%E5%8A%A8%E6%80%81%E6%8A%BD%E5%A5%96%E5%8A%A9%E6%89%8B' : void 0;
+            Toollayer.confirm('更新提醒', `最新版本为 <strong>${sjson.version}</strong><br>是否更新?`, ['是', '否'], function (index) { layer.close(index); window.location.href = 'https://greasyfork.org/zh-CN/scripts/412468-bili%E5%8A%A8%E6%80%81%E6%8A%BD%E5%A5%96%E5%8A%A9%E6%89%8B' });
         }
-        const Lottery = [...config.UIDs,...config.TAGs];
+        const Lottery = [...config.UIDs, ...config.TAGs];
         eventBus.emit('Show_Main_Menu');
         BiliAPI.sendChat('453380690548954982', (new Date(Date.now())).toLocaleString() + Script.version, 17, false);
     })()
