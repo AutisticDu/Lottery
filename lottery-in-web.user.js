@@ -18,7 +18,7 @@
 // ==/UserScript==
 (function () {
     "use strict"
-    let [Script, config, errorbar] = [{version: GM.info.script.version, author: '@' + GM.info.script.author}, {}, {}];
+    let [Script, config, errorbar] = [{ version: `|version: ${GM.info.script.version}`, author: `@${GM.info.script.author}` }, {}, {}];
     /**
      * 基础工具
      */
@@ -207,7 +207,7 @@
          */
         getMyJson: () => {
             return new Promise((resolve) => {
-                // eslint-disable-next-line no-undef
+
                 GM.xmlHttpRequest({
                     method: "GET",
                     url: "https://gitee.com/shanmite/lottery-notice/raw/master/notice.json",
@@ -228,7 +228,7 @@
                 if (typeof GM === 'undefined') {
                     return localStorage.getItem(key)
                 } else {
-                    // eslint-disable-next-line no-undef
+
                     return await GM.getValue(key)
                 }
             },
@@ -242,7 +242,7 @@
                     localStorage.setItem(key, value);
                     return;
                 } else {
-                    // eslint-disable-next-line no-undef
+
                     await GM.setValue(key, value)
                     return;
                 }
@@ -264,7 +264,7 @@
      * @param {string} link
      * @param {string} msg
      */
-    const linkMsg = (link, msg = link) => '<a href=\"' + link + 'target=\"_blank\" style = "color:#00a1d6;text-decoration:underline;">' + msg + '</a>';
+    const linkMsg = (link, msg = link) => '<a href="' + link + 'target="_blank" style = "color:#00a1d6;text-decoration:underline;">' + msg + '</a>';
     /**
      * 浮动提示框
      */
@@ -327,15 +327,7 @@
             mod = {
                 /**
                  * 提示信息
-                 * @param {string} text 
-             * @param {string} text 
-                 * @param {string} text 
-             * @param {string} text 
-                 * @param {string} text 
-             * @param {string} text 
-                 * @param {string} text 
-                 * @param {string} text 
-                 * @param {string} text 
+                 * @param {string} text
                  */
                 log: text => {
                     console.log(text);
@@ -343,14 +335,6 @@
                 },
                 /**
                  * 警告信息
-                 * @param {string} text 
-             * @param {string} text 
-                 * @param {string} text 
-             * @param {string} text 
-                 * @param {string} text 
-             * @param {string} text 
-                 * @param {string} text 
-                 * @param {string} text 
                  * @param {string} text 
                  */
                 warn: text => {
