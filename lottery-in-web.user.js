@@ -2248,7 +2248,7 @@
                                 layer.close(index);
                                 Toollayer.confirm('是否进入强力清除模式', '请再次确定', ['确定', '取消'], async function (index) {
                                     layer.close(index);
-                                    let offset = '0', time = 1, p1 = $.Deferred(), p2 = $.Deferred();
+                                    let offset = '0', time = 0, p1 = $.Deferred(), p2 = $.Deferred();
                                     const {
                                         day,
                                         page
@@ -2296,12 +2296,41 @@
                                         }
                                         p2.resolve();
                                     }
-                                    const promptTime = (fn) => Toollayer.prompt('输入停顿时间(单位秒)', 0, function (value, index) { isNaN(value) ? function () { Toollayer.msg('输入数据不是数字', 2000, 2) }() : (() => { time = Number(value); fn(); })(); layer.close(index); });
-                                    Toollayer.confirm('选择删除的内容', '移除动态和移除关注最好分开进行', ['只删除动态', '只移除关注', '删除动态并移除关注'], function (index) { layer.close(index); p2.resolve(); promptTime(delDynamic) }, function (index) { layer.close(index); p1.resolve(); promptTime(unFollow) }, function (index) { layer.close(index); promptTime(function () { delDynamic(); unFollow() }) });
+                                    const promptTime = (fn) => Toollayer.prompt(
+                                        '输入停顿时间(单位秒)',
+                                        0,
+                                        (value, index) => {
+                                            isNaN(value) ? (() => { Toollayer.msg('输入数据不是数字', 2000, 2) })()
+                                                : (() => { time = Number(value); fn(); })();
+                                            layer.close(index);
+                                        }
+                                    );
+                                    Toollayer.confirm(
+                                        '选择删除的内容',
+                                        '移除动态和移除关注最好分开进行',
+                                        ['只删除动态', '只移除关注', '删除动态并移除关注'],
+                                        index => { layer.close(index); p2.resolve(); promptTime(delDynamic) },
+                                        index => { layer.close(index); p1.resolve(); promptTime(unFollow) },
+                                        index => { layer.close(index); promptTime(() => { delDynamic(); unFollow() }) }
+                                    );
                                     $.when(p1, p2).done(function () {
-                                        Toollayer.confirm('清除成功', '成功清除，感谢使用', ['确定'], function () { Toollayer.confirm('是否清空本地存储', '如果动态数量少于10条，请点击确定以清空本地存储。', ['确定', '取消'], function (index) { layer.close(index); Base.storage.set(GlobalVar.myUID, '{}') }) });
+                                        Toollayer.confirm(
+                                            '清除成功',
+                                            '成功清除，感谢使用',
+                                            ['确定'],
+                                            () => {
+                                                Toollayer.confirm(
+                                                    '是否清空本地存储',
+                                                    '如果动态数量少于10条，请点击确定以清空本地存储。',
+                                                    ['确定', '取消'],
+                                                    index => { layer.close(index); Base.storage.set(GlobalVar.myUID, '{}') }
+                                                )
+                                            }
+                                        );
                                     });
-                                }, function () { Toollayer.msg('已取消') })
+                                },
+                                    () => { Toollayer.msg('已取消') }
+                                )
                             })
                         })()
                         break;
