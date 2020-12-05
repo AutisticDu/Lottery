@@ -1,5 +1,6 @@
 .shanmitemenu {
     position: fixed;
+    -webkit-user-select: none;
     z-index: 99999;
     right: 30px;
     top: 90%;
@@ -13,27 +14,27 @@
     background-image: url(https://s1.hdslb.com/bfs/seed/bplus-common/icon/2.2.1/bp-svg-icon.svg);
     background-repeat: no-repeat;
     background-size: 1em 23.225em;
-    font-size: 40px;
+    font-size: 80px;
+    border: 2px dashed skyblue;
     font-style: italic;
 }
 .shanmitemenu .show {
     position: relative;
     overflow: hidden;
     padding-left: 0px;
-    line-height: 30px;
+    line-height: 35px;
     transition: 0.3s all 0.1s cubic-bezier(0, 0.53, 0.15, 0.99);
     cursor: pointer;
     color: #178bcf;
 }
 
 .shanmitemenu .show:hover {
-    padding-left: 75px;
+    padding-left: 130px;
 }
-
 .shanmitemenu .box {
     position: absolute;
-    right: 20px;
-    bottom: 30px;
+    right: 45px;
+    bottom: 35px;
     background-color: #E5F4FB;
     padding: 5px;
     border-radius: 5px;

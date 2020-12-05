@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bili动态抽奖助手
 // @namespace    http://tampermonkey.net/
-// @version      3.7.13
+// @version      3.7.14
 // @description  自动参与B站"关注转发抽奖"活动
 // @author       shanmite
 // @include      /^https?:\/\/space\.bilibili\.com/[0-9]*/
@@ -9,16 +9,16 @@
 // @require      https://cdn.bootcss.com/jquery/3.2.1/jquery.min.js
 // @require      https://cdn.jsdelivr.net/gh/shanmite/Lottery@3e4c90af6a6eff4afec30603e77014485c0df75b/lib/layer/layer.js
 // @resource     layerCss https://cdn.jsdelivr.net/gh/shanmite/Lottery@3e4c90af6a6eff4afec30603e77014485c0df75b/lib/layer/layer.css
-// @grant        GM.setValue
-// @grant        GM.getValue
-// @grant        GM.deleteValue
-// @grant        GM.xmlHttpRequest
-// @grant        GM.getResourceUrl
+// @grant        GM_info
+// @grant        GM_setValue
+// @grant        GM_getValue
+// @grant        GM_xmlhttpRequest
+// @grant        GM_getResourceURL
 // @connect      gitee.com
 // ==/UserScript==
 (function () {
     "use strict"
-    let [Script, config, errorbar] = [{ version: `|version: ${GM.info.script.version}`, author: `@${GM.info.script.author}`, name: GM.info.script.name }, {}, {}];
+    let [Script, config, errorbar] = [{ version: `|version: ${GM_info.script.version}`, author: `@${GM_info.script.author}`, name: GM_info.script.name }, {}, {}];
     /**
      * 基础工具
      */
@@ -206,7 +206,7 @@
          */
         getMyJson: () => {
             return new Promise((resolve) => {
-                GM.xmlHttpRequest({
+                GM_xmlhttpRequest({
                     method: "GET",
                     url: "https://gitee.com/shanmite/lottery-notice/raw/master/notice.json",
                     onload: function (response) {
@@ -226,7 +226,7 @@
                 if (typeof GM === 'undefined') {
                     return localStorage.getItem(key)
                 } else {
-                    return await GM.getValue(key)
+                    return await GM_getValue(key)
                 }
             },
             /**
@@ -239,7 +239,7 @@
                     localStorage.setItem(key, value);
                     return;
                 } else {
-                    await GM.setValue(key, value)
+                    await GM_setValue(key, value)
                     return;
                 }
             },
@@ -250,7 +250,7 @@
      * @param {string} text 
      * @param {string} myCss
      */
-    const addCss = (text, myCss) => GM.getResourceUrl(text).then((re) => {
+    const addCss = (text, myCss) => {
         const c = Base.createCompleteElement
             , myCSS = c({
                 children: [
@@ -262,13 +262,13 @@
                         tagname: 'link',
                         attr: {
                             rel: "stylesheet",
-                            href: re
+                            href: GM_getResourceURL(text)
                         },
                     })
                 ]
             })
         document.getElementsByTagName('head')[0].appendChild(myCSS);
-    })
+    }
     /**
      * 链接
      * @param {string} link
@@ -1203,7 +1203,7 @@
                     obj[odyid][1] = typeof _ts === 'undefined' ? ts : ts === 0 ? _ts : ts;
                     obj[odyid][2] = ouid;
                     await Base.storage.set(myUID, JSON.stringify(obj));
-                    Tooltip.log(`新增${dyid}:[${odyid},${ts},${ouid}]存储至本地`);
+                    Tooltip.log(`新增数据存储至本地`);
                     return;
                 },
                 /**
@@ -1662,7 +1662,7 @@
         }
         initUI() {
             const createCompleteElement = Base.createCompleteElement
-                , cssContent = ".shanmitemenu{position:fixed;z-index:99999;right:30px;top:90%}.shanmitemenu .icon{background-position:0 -8.375em;width:.425em;height:.4em;vertical-align:middle;display:inline-block;background-image:url(https://s1.hdslb.com/bfs/seed/bplus-common/icon/2.2.1/bp-svg-icon.svg);background-repeat:no-repeat;background-size:1em 23.225em;font-size:40px;font-style:italic}.shanmitemenu .show{position:relative;overflow:hidden;padding-left:0;line-height:30px;transition:.3s all .1s cubic-bezier(0,.53,.15,.99);cursor:pointer;color:#178bcf}.shanmitemenu .show:hover{padding-left:75px}.shanmitemenu .box{position:absolute;right:20px;bottom:30px;background-color:#e5f4fb;padding:5px;border-radius:5px;box-shadow:grey 0 0 10px 0;width:550px;height:550px}.shanmitemenu button{background-color:#23ade5;color:#fff;border-radius:4px;border:none;padding:5px;margin:4px;box-shadow:0 0 2px #00000075;line-height:14px}.shanmitemenu button:hover{background-color:#0e8bbd}.shanmitemenu button:focus{outline: 0;}.shanmitemenu .changetab{display:flex;-webkit-user-select:none}.shanmitemenu .changetab div{margin:0 0 0 10px;padding:3px;border-radius:6px;border:2px solid #26c6da;font-size:14px;cursor:pointer;transition:background-color .3s ease 0s;background-color:#87cfeb80}.shanmitemenu .changetab div:hover{background-color:skyblue}.shanmitemenu .changetab div:active{background-color:#17abe6;position:relative;top:1px}.shanmitemenu .tab{display:none;overflow:hidden;overflow-y:scroll;height:510px;margin:3px}.shanmitemenu .tab .card{font-size:15px;margin:15px;padding:5px;border-radius:5px;background-color:#ffffff;box-shadow:gray 0 0 4px 0}.shanmitemenu .bottom{display:flex;justify-content:flex-end;align-items:flex-end}.shanmitemenu .bottom button{margin-left:10px}"
+                , cssContent = ".shanmitemenu{position:fixed;-webkit-user-select:none;z-index:99999;right:30px;top:90%}.shanmitemenu .icon{background-position:0 -8.375em;width:.425em;height:.4em;vertical-align:middle;display:inline-block;background-image:url(https://s1.hdslb.com/bfs/seed/bplus-common/icon/2.2.1/bp-svg-icon.svg);background-repeat:no-repeat;background-size:1em 23.225em;font-size:80px;border:2px dashed skyblue;font-style:italic}.shanmitemenu .show{position:relative;overflow:hidden;padding-left:0;line-height:35px;transition:.3s all .1s cubic-bezier(0,.53,.15,.99);cursor:pointer;color:#178bcf}.shanmitemenu .show:hover{padding-left:130px}.shanmitemenu .box{position:absolute;right:45px;bottom:35px;background-color:#E5F4FB;padding:5px;border-radius:5px;box-shadow:grey 0 0 10px 0;width:550px;height:550px}.shanmitemenu button{font-size:14px;padding:0 5px}.shanmitemenu .changetab{display:flex;-webkit-user-select:none}.shanmitemenu .changetab div{margin:0 0 0 10px;padding:3px;border-radius:6px;border:2px solid #26c6da;font-size:14px;cursor:pointer;transition:background-color .3s ease 0s;background-color:#87cfeb80}.shanmitemenu .changetab div:hover{background-color:skyblue}.shanmitemenu .tab{display:none;overflow:hidden;overflow-y:scroll;height:510px;margin:3px}.shanmitemenu .tab .card{font-size:15px;margin:15px;padding:5px;border-radius:5px;background-color:#ffffff;box-shadow:gray 0 0 4px 0}.shanmitemenu .bottom{display:flex;justify-content:flex-end;align-items:flex-end}.shanmitemenu .bottom button{margin-left:10px}"
                 , frg = createCompleteElement({
                     tagname: 'div',
                     attr: {
@@ -1688,16 +1688,15 @@
                                     tagname: 'span',
                                     attr: {
                                         id: 'showall',
-                                        style: 'position:absolute;right: 1.5em;width: 4em;font-size: 17px;-webkit-user-select: none;'
+                                        style: 'position:absolute;right: 2em;width: 6em;font-size: 20px;'
                                     },
-                                    text: '抽奖助手',
+                                    text: '动态抽奖助手',
                                 }),
                                 createCompleteElement({
                                     tagname: 'i',
                                     attr: {
                                         id: 'showall',
                                         class: 'icon',
-                                        style: "position:relative;top:-2px;margin-left:2px;margin-right:2px;border: 1px dashed skyblue;"
                                     },
                                 })
                             ]
@@ -2599,11 +2598,10 @@
                 });
             infocards.appendChild(LotteryDetailInfo);
         }
-
     }
     /**主函数 */
     (async function main() {
-        await addCss('layerCss', 'code{padding:.2em .4em;margin:0;font-size:85%;background-color:rgb(27 31 35 / 5%);border-radius:6px}');
+        addCss('layerCss', 'code{padding:.2em .4em;margin:0;font-size:85%;background-color:rgb(27 31 35 / 5%);border-radius:6px}');
         if (/(?<=space\.bilibili\.com\/)[0-9]*(?=\/?)/.exec(window.location.href)[0] !== GlobalVar.myUID) {
             Tooltip.log(document.title);
             return;
