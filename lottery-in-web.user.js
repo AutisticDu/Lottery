@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bili动态抽奖助手
 // @namespace    http://tampermonkey.net/
-// @version      3.7.14
+// @version      3.7.15
 // @description  自动参与B站"关注转发抽奖"活动
 // @author       shanmite
 // @include      /^https?:\/\/space\.bilibili\.com/[0-9]*/
@@ -2231,30 +2231,43 @@
                         }
                         break;
                     case 'rmdy':
-                        (async () => {
-                            let [i, j, k] = [0, 0, 0];
-                            const str = await GlobalVar.getAllMyLotteryInfo()
-                                , AllMyLotteryInfo = JSON.parse(str);
-                            for (const odyid in AllMyLotteryInfo) {
-                                if ({}.hasOwnProperty.call(AllMyLotteryInfo, odyid)) {
+                        (() => {
+                            let [i, j, k, time] = [0, 0, 0, 0];
+                            async function rm(model) {
+                                const str = await GlobalVar.getAllMyLotteryInfo()
+                                    , AllMyLotteryInfo = JSON.parse(str);
+                                for (const odyid in AllMyLotteryInfo) {
+                                    i++;
                                     const [dyid, ts, ouid] = AllMyLotteryInfo[odyid];
-                                    if (ts === 0) {
-                                        k++;
-                                    } else {
-                                        i++;
-                                        if (ts < (Date.now() / 1000)) {
-                                            j++;
-                                            const { isMe } = await BiliAPI.getLotteryNotice(dyid);
-                                            isMe === '中奖了！！！' ? Toollayer.alert('恭喜！！！中奖了', `前往 ${linkMsg(`https://t.bilibili.com/${dyid}`)} 查看。`) : Tooltip.log('未中奖');
-                                            Tooltip.log(`移除过期官方或非官方动态${dyid}`);
-                                            if (typeof dyid !== 'undefined') BiliAPI.rmDynamic(dyid);
-                                            if (typeof ouid !== 'undefined') BiliAPI.cancelAttention(ouid);
-                                            await GlobalVar.deleteLotteryInfo(odyid)
-                                        }
-                                    }
+                                    if (ts === 0) continue;
+                                    j++;
+                                    if (ts > (Date.now() / 1000)) continue;
+                                    k++;
+                                    const { isMe } = await BiliAPI.getLotteryNotice(dyid);
+                                    isMe === '中奖了！！！' ? Toollayer.alert('恭喜！！！中奖了', `前往 ${linkMsg(`https://t.bilibili.com/${dyid}`)} 查看。`) : Tooltip.log('未中奖');
+                                    Tooltip.log(`移除过期官方或非官方动态${dyid}`);
+                                    if (typeof dyid !== 'undefined' && model[0] === '1') BiliAPI.rmDynamic(dyid);
+                                    if (typeof ouid !== 'undefined' && model[1] === '1') BiliAPI.cancelAttention(ouid);
+                                    if (model === '11') GlobalVar.deleteLotteryInfo(odyid);
+                                    await Base.delay(time * 1000);
                                 }
+                                Toollayer.alert('清理动态完毕', `<li>共查看<code>${i}</code>条动态</li><li>能识别开奖时间的:共<code>${j}</code>条 过期<code>${k}</code>条 未开奖<code>${j - k}</code>条</li>`);
                             }
-                            Toollayer.alert('清理动态完毕', `<li>共查看<code>${i + k}</code>条动态</li><li>能识别开奖时间的:共<code>${i}</code>条 过期<code>${j}</code>条 未开奖<code>${i - j}</code>条</li>`);
+                            const promptTime = (fn) => Toollayer.prompt(
+                                '输入停顿时间(单位秒)',
+                                0,
+                                (value) => {
+                                    isNaN(value) ? (() => { Toollayer.msg('输入数据不是数字', 2000, 2) })()
+                                        : (() => { time = Number(value); fn(); })();
+                                }
+                            );
+                            Toollayer.confirm(
+                                '选择删除的内容',
+                                '从本地存储中读取转发过的动态',
+                                ['只删除动态', '删除动态并移除关注'],
+                                () => { promptTime(() => { rm('10') }) },
+                                () => { promptTime(() => { rm('11') }) }
+                            );
                         })()
                         break;
                     case 'sudormdy':
