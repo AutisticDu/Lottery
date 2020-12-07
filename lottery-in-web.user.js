@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bili动态抽奖助手
 // @namespace    http://tampermonkey.net/
-// @version      3.7.15
+// @version      3.7.16
 // @description  自动参与B站"关注转发抽奖"活动
 // @author       shanmite
 // @include      /^https?:\/\/space\.bilibili\.com/[0-9]*/
@@ -13,7 +13,7 @@
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @grant        GM_xmlhttpRequest
-// @grant        GM_getResourceURL
+// @grant        GM_getResourceText
 // @connect      gitee.com
 // ==/UserScript==
 (function () {
@@ -253,19 +253,11 @@
     const addCss = (text, myCss) => {
         const c = Base.createCompleteElement
             , myCSS = c({
-                children: [
-                    c({
-                        tagname: 'style',
-                        text: myCss,
-                    }),
-                    c({
-                        tagname: 'link',
-                        attr: {
-                            rel: "stylesheet",
-                            href: GM_getResourceURL(text)
-                        },
-                    })
-                ]
+                tagname: 'style',
+                attr: {
+                    type: "text/css"
+                },
+                text: myCss + GM_getResourceText(text),
             })
         document.getElementsByTagName('head')[0].appendChild(myCSS);
     }
@@ -683,6 +675,7 @@
                         if (res.code === 0) {
                             resolve(res.data.follower)
                         } else {
+                            Tooltip.log('切换获取关注数的接口');
                             Ajax.get({
                                 url: 'https://api.bilibili.com/x/relation/stat',
                                 queryStringsObj: {
@@ -1141,11 +1134,13 @@
                                     }
                                 })
                             } else {
+                                Base.storage.set(`${GlobalVar.myUID}tagid`,tagid);
                                 resolve(tagid);
                             }
                         } else {
-                            Tooltip.warn(`[获取分区id]失败\n${responseText}`);
-                            resolve(tagid);
+                            Tooltip.log(`[获取分区id]访问出错,尝试从本地存储中获取\n${responseText}`);
+                            Base.storage.get(`${GlobalVar.myUID}tagid`)
+                                .then(td => {resolve(Number(td))})
                         }
                     }
                 })
@@ -1662,7 +1657,7 @@
         }
         initUI() {
             const createCompleteElement = Base.createCompleteElement
-                , cssContent = ".shanmitemenu{position:fixed;-webkit-user-select:none;z-index:99999;right:30px;top:90%}.shanmitemenu .icon{background-position:0 -8.375em;width:.425em;height:.4em;vertical-align:middle;display:inline-block;background-image:url(https://s1.hdslb.com/bfs/seed/bplus-common/icon/2.2.1/bp-svg-icon.svg);background-repeat:no-repeat;background-size:1em 23.225em;font-size:80px;border:2px dashed skyblue;font-style:italic}.shanmitemenu .show{position:relative;overflow:hidden;padding-left:0;line-height:35px;transition:.3s all .1s cubic-bezier(0,.53,.15,.99);cursor:pointer;color:#178bcf}.shanmitemenu .show:hover{padding-left:130px}.shanmitemenu .box{position:absolute;right:45px;bottom:35px;background-color:#E5F4FB;padding:5px;border-radius:5px;box-shadow:grey 0 0 10px 0;width:550px;height:550px}.shanmitemenu button{font-size:14px;padding:0 5px}.shanmitemenu .changetab{display:flex;-webkit-user-select:none}.shanmitemenu .changetab div{margin:0 0 0 10px;padding:3px;border-radius:6px;border:2px solid #26c6da;font-size:14px;cursor:pointer;transition:background-color .3s ease 0s;background-color:#87cfeb80}.shanmitemenu .changetab div:hover{background-color:skyblue}.shanmitemenu .tab{display:none;overflow:hidden;overflow-y:scroll;height:510px;margin:3px}.shanmitemenu .tab .card{font-size:15px;margin:15px;padding:5px;border-radius:5px;background-color:#ffffff;box-shadow:gray 0 0 4px 0}.shanmitemenu .bottom{display:flex;justify-content:flex-end;align-items:flex-end}.shanmitemenu .bottom button{margin-left:10px}"
+                , cssContent = ".shanmitemenu{position:fixed;-webkit-user-select:none;z-index:99999;right:30px;top:90%}.shanmitemenu .icon{background-position:0 -8.375em;width:.425em;height:.4em;vertical-align:middle;display:inline-block;background-image:url(https://s1.hdslb.com/bfs/seed/bplus-common/icon/2.2.1/bp-svg-icon.svg);background-repeat:no-repeat;background-size:1em 23.225em;font-size:80px;border:2px dashed skyblue;font-style:italic}.shanmitemenu .show{position:relative;overflow:hidden;padding-left:0;line-height:35px;transition:.3s all .1s cubic-bezier(0,.53,.15,.99);cursor:pointer;color:#178bcf}.shanmitemenu .show:hover{padding-left:130px}.shanmitemenu .box{position:absolute;right:45px;bottom:35px;background-color:#E5F4FB;padding:5px;border-radius:5px;box-shadow:grey 0 0 10px 0;width:550px;height:550px}.shanmitemenu button{background-color:#23ade5;color:#fff;border-radius:4px;border:none;padding:5px;margin:4px;box-shadow:0 0 2px #00000075;line-height:14px}.shanmitemenu button:hover{background-color:#0e8bbd}.shanmitemenu button:focus{outline:none}.shanmitemenu .changetab{display:flex;-webkit-user-select:none}.shanmitemenu .changetab div{margin:0 0 0 10px;padding:3px;border-radius:6px;border:2px solid #26c6da;font-size:14px;cursor:pointer;transition:background-color .3s ease 0s;background-color:#87cfeb80}.shanmitemenu .changetab div:hover{background-color:skyblue}.shanmitemenu .changetab div:active{background-color:#17abe6;position:relative;top:1px}.shanmitemenu .tab{display:none;overflow:hidden;overflow-y:scroll;height:510px;margin:3px}.shanmitemenu .tab .card{font-size:15px;margin:15px;padding:5px;border-radius:5px;background-color:#ffffff;box-shadow:gray 0 0 4px 0}.shanmitemenu .bottom{display:flex;justify-content:flex-end;align-items:flex-end}.shanmitemenu .bottom button{margin-left:10px}"
                 , frg = createCompleteElement({
                     tagname: 'div',
                     attr: {

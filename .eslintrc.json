@@ -13,7 +13,7 @@
         "GM_setValue": "readonly",
         "GM_getValue": "readonly",
         "GM_xmlhttpRequest": "readonly",
-        "GM_getResourceURL": "readonly",
+        "GM_getResourceText": "readonly",
         "$": "readonly",
         "layer": "readonly"
     },

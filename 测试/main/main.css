@@ -43,8 +43,20 @@
     height: 550px;
 }
 .shanmitemenu button {
-    font-size: 14px;
-    padding: 0 5px;
+    background-color: #23ade5;
+    color: #fff;
+    border-radius: 4px;
+    border: none;
+    padding: 5px;
+    margin: 4px;
+    box-shadow: 0 0 2px #00000075;
+    line-height: 14px
+}
+.shanmitemenu button:hover {
+    background-color: #0e8bbd
+}
+.shanmitemenu button:focus {
+    outline: none;
 }
 .shanmitemenu .changetab {
     display: flex;
@@ -63,6 +75,12 @@
 .shanmitemenu .changetab div:hover {
     background-color: skyblue;
 }
+.shanmitemenu .changetab div:active {
+    background-color: #17abe6;
+    position: relative;
+    top: 1px
+}
+
 .shanmitemenu .tab {
     display: none;
     overflow: hidden;
