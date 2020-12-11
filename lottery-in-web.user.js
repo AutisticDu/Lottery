@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bili动态抽奖助手
 // @namespace    http://tampermonkey.net/
-// @version      3.7.17
+// @version      3.7.18
 // @description  自动参与B站"关注转发抽奖"活动
 // @author       shanmite
 // @include      /^https?:\/\/space\.bilibili\.com/[0-9]*/
@@ -387,12 +387,27 @@
                 );
             },
             prompt: (title, formType, fn, value) => {
-                layer.prompt({ title: `<strong>${title}</strong>`, formType: formType, value: value },
+                layer.prompt({ title: `<strong>${title}</strong>`, formType: formType, value: value , closeBtn: 0},
                     function (value, index) { layer.close(index); return fn(value) }
                 )
             },
             msg: (content, time = 2000, icon) => {
                 layer.msg(content, { time: time, icon: icon })
+            },         
+            tips: (content, element, tips, time, fixed, successFn = function () { }, contentCss = { "border-radius": "20px", "background-color": "#00c4f8" }, tipsGTCss = { "border-right-color": "#00c4f8" }) => {
+                layer.tips(content, element, {
+                    tips: tips,
+                    time: time,
+                    fixed: fixed,
+                    success: (dom, index) => {
+                        const layerContent = dom.children('.layui-layer-content'),
+                            layerTipsGT = layerContent.children('.layui-layer-TipsG.layui-layer-TipsT');
+                        layerContent.css(contentCss);
+                        layerTipsGT.css(tipsGTCss);
+                        successFn(dom, index)
+                    },
+                });
+
             }
         }
         return tools;
@@ -2674,6 +2689,26 @@
                 config = _config;
             }
             (new MainMenu()).init();
+            const shanmitemenu = $('.shanmitemenu');
+            Base.storage.get('firstRun').then((firstRun) => {
+                if (firstRun === undefined) {
+                    /**初次运行时提示图标位置 */
+                    Toollayer.tips('<span style="font-size:1.5em">点我打开主菜单</span>',
+                        '.show',
+                        1,
+                        60e3,
+                        true,
+                        function (dom, index) {
+                            shanmitemenu.click(() => {
+                                console.log('click menu')
+                                layer.close(index);
+                                Base.storage.set('firstRun', false);
+                                shanmitemenu.unbind('click');
+                            })
+                        }
+                    )
+                }
+            })
         })
         await GlobalVar.getAllMyLotteryInfo();/* 转发信息初始化 */
         const sjson = await Base.getMyJson(); /* 热更新的默认设置 */
