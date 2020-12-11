@@ -31,7 +31,7 @@
          * 返回对象或空对象
          */
         strToJson(params) {
-            let isJSON = str => {
+            let iremoteparm = str => {
                 if (typeof str === 'string') {
                     try {
                         var obj = JSON.parse(str);
@@ -47,7 +47,7 @@
                 }
                 console.error(`${str}<- It is not a string!`);
             }
-            if (isJSON(params)) {
+            if (iremoteparm(params)) {
                 let obj = JSON.parse(params);
                 return obj
             } else {
@@ -110,11 +110,22 @@
             return arr[parseInt(Math.random() * arr.length)]
         },
         /**
+         * 判断是否是自己的主页
+         * @param {string} href
+         * @returns {boolean}
+         */
+        checkHerf(href) {
+            const reg = /(?<=space\.bilibili\.com\/)[0-9]*(?=\/?)/;
+            if (reg.exec(href)[0] === GlobalVar.myUID) return true
+            Tooltip.log(document.title);
+            return false
+        },
+        /**
          * 测试浏览器
          * @param { string } browser
          * @returns { boolean }
          */
-        testBrowser(browser) {
+        checkBrowser(browser) {
             if (/(compatible|Trident)/.test(browser)) {
                 Toollayer.alert(Script.name, '当前浏览器内核为IE内核,请使用非IE内核浏览器!');
                 return false;
@@ -254,7 +265,7 @@
              * @returns {Promise<string>}
              */
             async get(key) {
-                if (typeof GM === 'undefined') {
+                if (typeof GM_getValue === 'undefined') {
                     return localStorage.getItem(key)
                 } else {
                     return await GM_getValue(key)
@@ -266,7 +277,7 @@
              * @param {string} value 
              */
             async set(key, value) {
-                if (typeof GM === 'undefined') {
+                if (typeof GM_setValue === 'undefined') {
                     localStorage.setItem(key, value);
                     return;
                 } else {
@@ -387,13 +398,13 @@
                 );
             },
             prompt: (title, formType, fn, value) => {
-                layer.prompt({ title: `<strong>${title}</strong>`, formType: formType, value: value , closeBtn: 0},
+                layer.prompt({ title: `<strong>${title}</strong>`, formType: formType, value: value, closeBtn: 0 },
                     function (value, index) { layer.close(index); return fn(value) }
                 )
             },
             msg: (content, time = 2000, icon) => {
                 layer.msg(content, { time: time, icon: icon })
-            },         
+            },
             tips: (content, element, tips, time, fixed, successFn = function () { }, contentCss = { "border-radius": "20px", "background-color": "#00c4f8" }, tipsGTCss = { "border-right-color": "#00c4f8" }) => {
                 layer.tips(content, element, {
                     tips: tips,
@@ -407,7 +418,6 @@
                         successFn(dom, index)
                     },
                 });
-
             }
         }
         return tools;
@@ -1196,67 +1206,68 @@
         const [myUID, csrf] = (() => {
             const a = /((?<=DedeUserID=)\d+).*((?<=bili_jct=)\w+)/g.exec(document.cookie);
             return [a[1], a[2]]
-        })(),
-            mod = {
-                /**自己的UID*/
-                myUID,
-                /**防跨站请求伪造*/
-                csrf,
-                /**
-                 * 获取本地存储信息
-                 * 格式-> odyid:[dyid, ts, origin_uid]
-                 */
-                getAllMyLotteryInfo: async () => {
-                    const allMyLotteryInfo = await Base.storage.get(myUID);
-                    if (typeof allMyLotteryInfo === 'undefined') {
-                        Tooltip.log('第一次使用,初始化中...');
-                        let alldy = (await Public.prototype.checkAllDynamic(myUID, 50)).allModifyDynamicResArray;
-                        let obj = {};
-                        for (let index = 0; index < alldy.length; index++) {
-                            const { dynamic_id, origin_dynamic_id, origin_uid } = alldy[index];
-                            if (typeof origin_dynamic_id === 'string') {
-                                obj[origin_dynamic_id] = [dynamic_id, 0, origin_uid]
-                            }
-                        }
-                        await Base.storage.set(myUID, JSON.stringify(obj));
-                        Tooltip.log('初始化成功');
-                    } else {
-                        return allMyLotteryInfo
+        })();
+        /**
+         * 获取本地存储信息
+         * 格式-> `odyid:[dyid, ts, origin_uid]`
+         * @returns {Promise<string>}
+         */
+        async function getAllMyLotteryInfo() {
+            const allMyLotteryInfo = await Base.storage.get(myUID);
+            if (typeof allMyLotteryInfo === 'undefined') {
+                Tooltip.log('第一次使用,初始化中...');
+                let alldy = (await Public.prototype.checkAllDynamic(myUID, 50)).allModifyDynamicResArray;
+                let obj = {};
+                for (let index = 0; index < alldy.length; index++) {
+                    const { dynamic_id, origin_dynamic_id, origin_uid } = alldy[index];
+                    if (typeof origin_dynamic_id === 'string') {
+                        obj[origin_dynamic_id] = [dynamic_id, 0, origin_uid]
                     }
-                },
-                /**
-                 * 增加动态信息
-                 * @param {string|''} dyid
-                 * @param {string} odyid
-                 * @param {number|0} ts
-                 * @param {number} ouid 
-                 */
-                addLotteryInfo: async (dyid, odyid, ts, ouid) => {
-                    const allMyLotteryInfo = await mod.getAllMyLotteryInfo();
-                    let obj = JSON.parse(allMyLotteryInfo);
-                    Object.prototype.hasOwnProperty.call(obj, odyid) ? void 0 : obj[odyid] = [];
-                    const [_dyid, _ts] = [obj[odyid][0], obj[odyid][1]];
-                    obj[odyid][0] = typeof _dyid === 'undefined' ? dyid : dyid === '' ? _dyid : dyid;
-                    obj[odyid][1] = typeof _ts === 'undefined' ? ts : ts === 0 ? _ts : ts;
-                    obj[odyid][2] = ouid;
-                    await Base.storage.set(myUID, JSON.stringify(obj));
-                    Tooltip.log(`新增数据存储至本地`);
-                    return;
-                },
-                /**
-                 * 移除一条动态信息
-                 * @param {string} odyid
-                 */
-                deleteLotteryInfo: async (odyid) => {
-                    const allMyLotteryInfo = await mod.getAllMyLotteryInfo();
-                    let obj = JSON.parse(allMyLotteryInfo);
-                    delete obj[odyid];
-                    await Base.storage.set(myUID, JSON.stringify(obj));
-                    Tooltip.log(`本地移除dyid:${odyid}`);
-                    return;
-                },
-            };
-        return mod;
+                }
+                await Base.storage.set(myUID, JSON.stringify(obj));
+                Tooltip.log('初始化成功');
+            } else {
+                return allMyLotteryInfo
+            }
+        }
+        return {
+            /**自己的UID*/
+            myUID,
+            /**防跨站请求伪造*/
+            csrf,
+            getAllMyLotteryInfo,
+            /**
+             * 增加动态信息
+             * @param {string|''} dyid
+             * @param {string} odyid
+             * @param {number|0} ts
+             * @param {number} ouid 
+             */
+            addLotteryInfo: async (dyid, odyid, ts, ouid) => {
+                const allMyLotteryInfo = await getAllMyLotteryInfo();
+                let obj = JSON.parse(allMyLotteryInfo);
+                Object.prototype.hasOwnProperty.call(obj, odyid) ? void 0 : obj[odyid] = [];
+                const [_dyid, _ts] = [obj[odyid][0], obj[odyid][1]];
+                obj[odyid][0] = typeof _dyid === 'undefined' ? dyid : dyid === '' ? _dyid : dyid;
+                obj[odyid][1] = typeof _ts === 'undefined' ? ts : ts === 0 ? _ts : ts;
+                obj[odyid][2] = ouid;
+                await Base.storage.set(myUID, JSON.stringify(obj));
+                Tooltip.log(`新增数据存储至本地`);
+                return;
+            },
+            /**
+             * 移除一条动态信息
+             * @param {string} odyid
+             */
+            deleteLotteryInfo: async (odyid) => {
+                const allMyLotteryInfo = await getAllMyLotteryInfo();
+                let obj = JSON.parse(allMyLotteryInfo);
+                delete obj[odyid];
+                await Base.storage.set(myUID, JSON.stringify(obj));
+                Tooltip.log(`本地移除dyid:${odyid}`);
+                return;
+            },
+        };
     })()
     /**
      * 基础功能
@@ -1264,35 +1275,31 @@
     class Public {
         constructor() { }
         /**
+         * 提取出的有用动态信息
+         * @typedef {object} UsefulDynamicInfo
+         * @property {number} uid
+         * @property {string} uname
+         * @property {number} createtime
+         * @property {string} rid_str
+         * @property {string} dynamic_id
+         * @property {number} type
+         * @property {string} description
+         * @property {boolean} hasOfficialLottery
+         * @property {number} origin_uid
+         * @property {string} origin_uname
+         * @property {string} origin_rid_str
+         * @property {string} origin_dynamic_id
+         * @property {number} orig_type
+         * @property {string} origin_description
+         * @property {boolean} origin_hasOfficialLottery
+         */
+        /**
          * 检查所有的动态信息
-         * @param {string} UID
-         * 指定的用户UID
-         * @param {number} pages
-         * 读取页数
-         * @param {number} time
-         * 时延
-         * @returns {
-            Promise<{
-                allModifyDynamicResArray: {
-                    uid: number;
-                    uname: string;
-                    createtime: number;
-                    rid_str: string;
-                    dynamic_id: string;
-                    type: number;
-                    description: string;
-                    hasOfficialLottery: boolean;
-                    origin_uid: number;
-                    origin_uname: string;
-                    origin_rid_str: string;
-                    origin_dynamic_id: string;
-                    orig_type: number;
-                    origin_description: string;
-                    origin_hasOfficialLottery: boolean;
-                }[],
-                offset: string
-            }>
-        } 获取前 pages*12 个动态信息
+         * @param {string} UID 指定的用户UID
+         * @param {number} pages 读取页数
+         * @param {number} time 时延
+         * @param {string} [_offset] 默认'0'
+         * @returns {Promise<{allModifyDynamicResArray: UsefulDynamicInfo[];offset: string}>} 获取前 `pages*12` 个动态信息
          */
         async checkAllDynamic(hostuid, pages, time = 0, _offset = '0') {
             Tooltip.log(`准备读取${pages}页自己的动态信息`);
@@ -1336,34 +1343,10 @@
             return ({ allModifyDynamicResArray, offset });
         }
         /**
-         * 互动抽奖
+         * 互动抽奖  
          * 处理来自动态页面的数据
          * @param {String} res
-         * @returns {
-            {
-                modifyDynamicResArray: {
-                    uid: number;
-                    uname: string;
-                    createtime: number;
-                    rid_str: string;
-                    dynamic_id: string;
-                    type: number;
-                    description: string;
-                    hasOfficialLottery: boolean;
-                    origin_uid: number;
-                    origin_uname: string;
-                    origin_rid_str: string;
-                    origin_dynamic_id: string;
-                    orig_type: number;
-                    origin_description: string;
-                    origin_hasOfficialLottery: boolean;
-                }[];
-                nextinfo: {
-                    has_more: number;
-                    next_offset: string;
-                };
-            } | null
-        } 返回对象,默认为null
+         * @returns {{modifyDynamicResArray: UsefulDynamicInfo[];nextinfo: {has_more: number;next_offset: string;};} | null}
          */
         modifyDynamicRes(res) {
             const strToJson = Base.strToJson,
@@ -1427,20 +1410,20 @@
             };
         }
         /**
+         * @typedef {object} LotteryInfo
+         * @property {number} uid
+         * @property {string} dyid
+         * @property {boolean} befilter
+         * @property {string} rid
+         * @property {string} des
+         * @property {number} type
+         * @property {boolean} hasOfficialLottery 是否官方
+         */
+        /**
          * 获取tag下的抽奖信息(转发母动态)  
          * 并初步整理
          * @param {string} tag_name
-         * @returns {
-            Promise<{
-                uid: number;
-                dyid: string;
-                befilter: boolean;
-                rid: string;
-                des: string;
-                type: number;
-                hasOfficialLottery: boolean
-            }[] | null>
-        }
+         * @returns {Promise<LotteryInfo[] | null>}
          */
         async getLotteryInfoByTag(tag_name) {
             const self = this,
@@ -1476,17 +1459,7 @@
          * 获取最新动态信息(转发子动态)  
          * 并初步整理
          * @param {string} UID
-         * @returns {
-            Promise<{
-                uid: number;
-                dyid: string;
-                befilter: boolean;
-                rid: string;
-                des: string;
-                type: number;
-                hasOfficialLottery: boolean
-            }[] | null>
-        }
+         * @returns {Promise<LotteryInfo[] | null>}
          */
         async getLotteryInfoByUID(UID) {
             Tooltip.log(`开始获取用户${UID}的动态信息`);
@@ -1521,6 +1494,7 @@
      */
     class Monitor extends Public {
         /**
+         * @constructor
          * @param {number | string} param
          */
         constructor(param) {
@@ -1592,13 +1566,15 @@
             }
         }
         /**
-         * @returns {
-            Promise<{
-                uid: number;
-                dyid: string;
-                type: number;
-                rid: string;
-            }[] | []>
+         * 抽奖配置
+         * @typedef {object} LotteryOptions
+         * @property {number} uid 用户标识
+         * @property {string} dyid 动态标识
+         * @property {number} type 动态类型
+         * @property {string} rid 评论类型
+         */
+        /**
+         * @returns {Promise<LotteryOptions[] | []>
         }
          */
         async filterLotteryInfo() {
@@ -1657,17 +1633,10 @@
         }
         /**
          * 关注转发评论
-         * @param {
-            {
-                uid: number;
-                dyid: string;
-                type: number;
-                rid: string;
-            }
-        } obj
+         * @param {LotteryOptions} option
          */
-        async go(obj) {
-            const { uid, dyid, type, rid } = obj;
+        async go(option) {
+            const { uid, dyid, type, rid } = option;
             if (typeof dyid === 'string') {
                 BiliAPI.autoRelay(GlobalVar.myUID, dyid);
                 BiliAPI.autolike(dyid);
@@ -2187,6 +2156,7 @@
         eventListener() {
             const self = this
                 , shanmitemenu = document.querySelector('.shanmitemenu')
+                , showbutton = shanmitemenu.querySelector('.show')
                 , box = shanmitemenu.querySelector('.box')
                 , tabsarr = shanmitemenu.querySelectorAll('.tab')
                 , infotab = shanmitemenu.querySelector('.tab.info')
@@ -2197,7 +2167,27 @@
                         const element = tabsarr[index];
                         element.style.display = index == num ? 'block' : 'none';
                     }
+                };
+            Base.storage.get('firstRun').then(firstRun => {
+                if (typeof firstRun === 'undefined') {
+                    /**初次运行时提示图标位置 */
+                    Toollayer.tips(
+                        '<span style="font-size:1.5em">点我打开主菜单</span>',
+                        '.show',
+                        1,
+                        60e3,
+                        true,
+                        (_dom, index) => {
+                            showbutton.onclick = () => {
+                                console.log('click menu')
+                                layer.close(index);
+                                Base.storage.set('firstRun', false);
+                                showbutton.onclick = null;
+                            }
+                        }
+                    )
                 }
+            })
             errorbar = shanmitemenu.querySelector('.tab.error');
             show(0);
             tabsarr[0].addEventListener(
@@ -2476,25 +2466,21 @@
             return;
         }
         /**
+         * 信息卡片数据
+         * @typedef {object} InfoCard
+         * @property {number | 0} ts 10位时间戳
+         * @property {string | '非官方抽奖请自行查看'} text 文本信息
+         * @property {string} item 奖品
+         * @property {string} isMe 中奖信息
+         * @property {string} dynamic_id
+         * @property {string} origin_description
+         * @property {number} origin_uid
+         * @property {string} origin_uname
+         * @property {string} origin_dynamic_id
+         */
+        /**
          * 提取所需的信息
-         * @return {
-            Promise<{
-                ts:number | 0;
-                text:string | '非官方抽奖请自行查看';
-                item:string;
-                isMe: string;
-                dynamic_id:string;
-                origin_description: string;
-                origin_uid:number;
-                origin_uname:string;
-                origin_dynamic_id:string
-            }[]>
-        } 
-         * 截止时间戳  
-         * 文本  
-         * 本动态ID  
-         * 源up主UID  
-         * 源动态ID
+         * @return {Promise<InfoCard[]>} 
          */
         async fetchDynamicInfo() {
             let allMDResArray = await this.getNextDynamic();
@@ -2554,19 +2540,8 @@
         }
         /**
          * 生成一条开奖信息卡片
-         * @param {
-            {
-                ts:number;
-                text:string;
-                item:string;
-                isMe:boolean;
-                dynamic_id:string;
-                origin_description: string;
-                origin_uid:number;
-                origin_uname:string;
-                origin_dynamic_id:string
-            }
-        } info
+         * @param {InfoCard} info
+         * @param {string} color
          */
         creatLotteryDetailInfo(info, color) {
             const createCompleteElement = Base.createCompleteElement
@@ -2646,12 +2621,21 @@
     /**主函数 */
     (async function main() {
         addCss('layerCss', 'code{padding:.2em .4em;margin:0;font-size:85%;background-color:rgb(27 31 35 / 5%);border-radius:6px}');
-        if (/(?<=space\.bilibili\.com\/)[0-9]*(?=\/?)/.exec(window.location.href)[0] !== GlobalVar.myUID) {
-            Tooltip.log(document.title);
-            return;
+        if (!Base.checkHerf(window.location.href) && !Base.checkBrowser(navigator.appVersion)) return;
+        await GlobalVar.getAllMyLotteryInfo(); /* 转发信息初始化 */
+        const remoteparm = await Base.getMyJson(); /* 获取热更新的默认设置 */
+        config = remoteparm.config; /**初始化设置 */
+        if (remoteparm.version !== Script.version) {
+            Toollayer.confirm(
+                '更新提醒',
+                `最新版本为 <strong>${remoteparm.version}</strong><br>是否更新?`,
+                ['是', '否'],
+                () => { window.location.href = 'https://greasyfork.org/zh-CN/scripts/412468-bili%E5%8A%A8%E6%80%81%E6%8A%BD%E5%A5%96%E5%8A%A9%E6%89%8B' }
+            );
         }
-        if (!Base.testBrowser(navigator.appVersion)) return;
+        /* 注册事件 BEGIN */
         const count = Base.counter();
+        const Lottery = [...config.UIDs, ...config.TAGs];
         eventBus.on('Turn_on_the_Monitor', () => {
             if (Lottery.length === 0) { Tooltip.log('抽奖信息为空'); return }
             if (count.value() === Lottery.length) {
@@ -2689,42 +2673,8 @@
                 config = _config;
             }
             (new MainMenu()).init();
-            const shanmitemenu = $('.shanmitemenu');
-            Base.storage.get('firstRun').then((firstRun) => {
-                if (firstRun === undefined) {
-                    /**初次运行时提示图标位置 */
-                    Toollayer.tips('<span style="font-size:1.5em">点我打开主菜单</span>',
-                        '.show',
-                        1,
-                        60e3,
-                        true,
-                        function (dom, index) {
-                            shanmitemenu.click(() => {
-                                console.log('click menu')
-                                layer.close(index);
-                                Base.storage.set('firstRun', false);
-                                shanmitemenu.unbind('click');
-                            })
-                        }
-                    )
-                }
-            })
         })
-        await GlobalVar.getAllMyLotteryInfo();/* 转发信息初始化 */
-        const sjson = await Base.getMyJson(); /* 热更新的默认设置 */
-        config = (() => {
-            eval(sjson.dynamicScript);/* 仅用于推送消息,请放心使用 */
-            return sjson.config;
-        })()
-        if (sjson.version !== Script.version) {
-            Toollayer.confirm(
-                '更新提醒',
-                `最新版本为 <strong>${sjson.version}</strong><br>是否更新?`,
-                ['是', '否'],
-                () => { window.location.href = 'https://greasyfork.org/zh-CN/scripts/412468-bili%E5%8A%A8%E6%80%81%E6%8A%BD%E5%A5%96%E5%8A%A9%E6%89%8B' }
-            );
-        }
-        const Lottery = [...config.UIDs, ...config.TAGs];
+        /* 注册事件 END */
         eventBus.emit('Show_Main_Menu');
         BiliAPI.sendChat('453380690548954982', (new Date(Date.now())).toLocaleString() + Script.version, 17, false);
     })()
