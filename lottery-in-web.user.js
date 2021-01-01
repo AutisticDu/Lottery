@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bili动态抽奖助手
 // @namespace    http://tampermonkey.net/
-// @version      3.7.18
+// @version      3.7.19
 // @description  自动参与B站"关注转发抽奖"活动
 // @author       shanmite
 // @include      /^https?:\/\/space\.bilibili\.com/[0-9]*/
@@ -114,7 +114,7 @@
          * @param {string} href
          * @returns {boolean}
          */
-        checkHerf(href) {
+        checkHref(href) {
             const reg = /(?<=space\.bilibili\.com\/)[0-9]*(?=\/?)/;
             if (reg.exec(href)[0] === GlobalVar.myUID) return true
             Tooltip.log(document.title);
@@ -1766,11 +1766,11 @@
                                                 createCompleteElement({
                                                     tagname: 'button',
                                                     attr: {
-                                                        title: '自动下滚显示(wait 1s)',
+                                                        title: '加载全部(wait 1s)',
                                                         id: 'autoscroll',
                                                         style: 'position: absolute;right: 30px;bottom: 80px;'
                                                     },
-                                                    text: '自动下滚',
+                                                    text: '加载全部',
                                                 }),
                                                 createCompleteElement({
                                                     tagname: 'button',
@@ -2621,7 +2621,7 @@
     /**主函数 */
     (async function main() {
         addCss('layerCss', 'code{padding:.2em .4em;margin:0;font-size:85%;background-color:rgb(27 31 35 / 5%);border-radius:6px}');
-        if (!Base.checkHerf(window.location.href) && !Base.checkBrowser(navigator.appVersion)) return;
+        if (!Base.checkHref(window.location.href) || !Base.checkBrowser(navigator.appVersion)) return;
         await GlobalVar.getAllMyLotteryInfo(); /* 转发信息初始化 */
         const remoteparm = await Base.getMyJson(); /* 获取热更新的默认设置 */
         config = remoteparm.config; /**初始化设置 */
