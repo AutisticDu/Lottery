@@ -1,6 +1,4 @@
 # Bili动态抽奖助手
-[GitHub repo](https://github.com/shanmite/Lottery)  
-[Github Actions云端版本](https://github.com/shanmite/LotteryAutoScript)  
 
 ## 目的
 自动参与动态互动抽奖(关注与转发)  
@@ -28,8 +26,8 @@
 - 【自动】展示开奖信息  
 
 效果图:  
-![效果图1](https://i.bmp.ovh/imgs/2020/12/9d969c83d989cc2e.png)  
-![效果图2](https://i.bmp.ovh/imgs/2020/12/a212636f52bec481.png)  
+![效果图1](.github/1.png)  
+![效果图2](.github/2.png)  
 
 ## 完善
 如有问题请提交到[反馈](https://greasyfork.org/zh-CN/scripts/412468-bili%E5%8A%A8%E6%80%81%E6%8A%BD%E5%A5%96%E5%8A%A9%E6%89%8B/feedback)通知作者进行脚本更新,参与脚本的完善  
@@ -49,4 +47,4 @@
 QQ群:1078777380(暗号:233)  
 
 ### 支持作者  
-![二维码](https://ftp.bmp.ovh/imgs/2020/11/28493ff919d52ce5.png)  
+![二维码](.github/3.png)  
