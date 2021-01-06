@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bili动态抽奖助手
 // @namespace    http://tampermonkey.net/
-// @version      3.7.19
+// @version      3.8.1
 // @description  自动参与B站"关注转发抽奖"活动
 // @author       shanmite
 // @include      /^https?:\/\/space\.bilibili\.com/[0-9]*/
@@ -1279,14 +1279,17 @@
          * @typedef {object} UsefulDynamicInfo
          * @property {number} uid
          * @property {string} uname
+         * @property {boolean} official_verify
          * @property {number} createtime
          * @property {string} rid_str
          * @property {string} dynamic_id
          * @property {number} type
          * @property {string} description
          * @property {boolean} hasOfficialLottery
+         * 
          * @property {number} origin_uid
          * @property {string} origin_uname
+         * @property {boolean} origin_official_verify
          * @property {string} origin_rid_str
          * @property {string} origin_dynamic_id
          * @property {number} orig_type
@@ -1377,10 +1380,12 @@
                     /**临时储存单个动态中的信息 */
                     let obj = {};
                     const { desc, card } = onecard
-                        , { info } = desc.user_profile
+                        , { info, card: user_profile_card } = desc.user_profile
+                        , { official_verify } = user_profile_card
                         , cardToJson = strToJson(card);
                     obj.uid = info.uid; /* 转发者的UID */
                     obj.uname = info.uname;/* 转发者的name */
+                    obj.official_verify = official_verify.type > -1 ? true : false; /* 是否官方号 */
                     obj.createtime = desc.timestamp /* 动态的ts10 */
                     obj.rid_str = desc.rid_str;/* 用于发送评论 */
                     obj.type = desc.type /* 动态类型 */
@@ -1394,8 +1399,13 @@
                         obj.origin_uid = desc.origin.uid; /* 被转发者的UID */
                         obj.origin_rid_str = desc.origin.rid_str /* 被转发者的rid(用于发评论) */
                         obj.origin_dynamic_id = desc.orig_dy_id_str; /* 被转发者的动态的ID !!!!此为大数需使用字符串值,不然JSON.parse()会有丢失精度 */
-                        const { origin_extension } = cardToJson;
-                        obj.origin_hasOfficialLottery = typeof origin_extension === 'undefined' ? false : typeof origin_extension.lott === 'undefined' ? false : true; /* 是否有官方抽奖 */
+                        const { origin_extension, origin_user } = cardToJson;
+                        obj.origin_official_verify = typeof origin_user === 'undefined' ?
+                            false : origin_user.card.official_verify.type < 0 ?
+                                false : true; /* 是否官方号 */
+                        obj.origin_hasOfficialLottery = typeof origin_extension === 'undefined' ?
+                            false : typeof origin_extension.lott === 'undefined' ?
+                                false : true; /* 是否有官方抽奖 */
                         const origin = cardToJson.origin || '{}';
                         const { user, item } = strToJson(origin);
                         obj.origin_uname = typeof user === 'undefined' ? '' : user.name || user.uname || ''; /* 被转发者的name */
@@ -1414,6 +1424,7 @@
          * @property {number} uid
          * @property {string} dyid
          * @property {boolean} befilter
+         * @property {boolean} official_verify 官方认证
          * @property {string} rid
          * @property {string} des
          * @property {number} type
@@ -1445,6 +1456,7 @@
                 return {
                     uid: o.uid,
                     dyid: o.dynamic_id,
+                    official_verify: o.official_verify,
                     befilter: hasOrigin,
                     rid: o.rid_str,
                     des: o.description,
@@ -1473,6 +1485,7 @@
                     return {
                         uid: o.origin_uid,
                         dyid: o.origin_dynamic_id,
+                        official_verify: o.origin_official_verify,
                         befilter: false,
                         rid: o.origin_rid_str,
                         des: o.origin_description,
@@ -1585,7 +1598,7 @@
             const { model, chatmodel, maxday: _maxday, minfollower, blockword, blacklist } = config;
             const maxday = _maxday === '-1' || _maxday === '' ? Infinity : (Number(_maxday) * 86400);
             for (const info of protoLotteryInfo) {
-                const { uid, dyid, befilter, rid, des, type, hasOfficialLottery } = info;
+                const { uid, dyid, official_verify, befilter, rid, des, type, hasOfficialLottery } = info;
                 const now_ts_10 = Date.now() / 1000;
                 let onelotteryinfo = {};
                 let isLottery = false;
@@ -1606,10 +1619,15 @@
                     isLottery = ts > now_ts_10 && ts < now_ts_10 + maxday;
                     isSendChat = chatmodel[0] === '1';
                 } else if (!hasOfficialLottery && model[1] === '1') {
-                    const followerNum = await BiliAPI.getUserInfo(uid);
-                    if (followerNum < Number(minfollower)) continue;
+                    if (!/奖/.test(description)) continue;
                     ts = Base.getLotteryNotice(description).ts;
-                    isLottery = /[关转]/.test(description) && !befilter && (ts === 0 || (ts > now_ts_10 && ts < now_ts_10 + maxday));
+                    if (!official_verify) {
+                        const followerNum = await BiliAPI.getUserInfo(uid);
+                        if (followerNum < Number(minfollower)) continue;
+                        isLottery = /[转关].*[转关]/.test(description) && !befilter && (ts === 0 || (ts > now_ts_10 && ts < now_ts_10 + maxday));
+                    } else {
+                        isLottery = ts === 0 || (ts > now_ts_10 && ts < now_ts_10 + maxday);
+                    }
                     isSendChat = chatmodel[1] === '1';
                 }
                 if (isLottery) {
@@ -1836,7 +1854,7 @@
                                                         }),
                                                         createCompleteElement({
                                                             tagname: 'p',
-                                                            text: '默认移除所有转发动态或临时关注的up, 使用前请在在白名单内填入不想移除的动态, <br>可定期使用此功能清空无法处理的动态和本地存储信息。',
+                                                            text: '默认移除所有转发动态或临时关注的up, <br>使用前请在在白名单内填入不想移除的动态ID或up主的UID, <br>可定期使用此功能清空无法处理的动态和本地存储信息。',
                                                         }),
                                                         createCompleteElement({
                                                             tagname: 'span',
@@ -1903,10 +1921,10 @@
                                                         createCompleteElement({
                                                             tagname: 'a',
                                                             attr: {
-                                                                href: "https://greasyfork.org/zh-CN/scripts/415724",
+                                                                href: "https://github.com/shanmite/LotteryAutoScript",
                                                                 target: '_blank'
                                                             },
-                                                            text: '屏蔽自己的抽奖动态',
+                                                            text: '--> 云端版本 <--',
                                                         }),
                                                         createCompleteElement({
                                                             tagname: 'h3',
@@ -2073,7 +2091,7 @@
                                                         }),
                                                         createCompleteElement({
                                                             tagname: 'p',
-                                                            text: '此处存放白名单(动态的ID):',
+                                                            text: '此处存放白名单(动态的ID 或 UP主的UID):',
                                                         }),
                                                         createCompleteElement({
                                                             tagname: 'textarea',
@@ -2081,7 +2099,7 @@
                                                                 cols: '65',
                                                                 rows: '10',
                                                                 name: 'whitelist',
-                                                                title: "批量取关删动态时的受保护名单,此处内容格式同上"
+                                                                title: "批量取关删动态时的受保护名单,动态的id指的是点进动态之后链接中的那一串数字,此处内容格式同上"
                                                             },
                                                             text: config.whitelist,
                                                         }),
@@ -2194,7 +2212,7 @@
                 'scroll',
                 Base.throttle(async (ev) => {
                     const tab = ev.target;
-                    if (tab.scrollHeight - tab.scrollTop <= 310 && self.offset !== '-1')
+                    if (tab.scrollHeight - tab.scrollTop <= 510 && self.offset !== '-1')
                         await self.sortInfoAndShow();
                 }, 1000)
             );
@@ -2296,6 +2314,7 @@
                             Toollayer.confirm('是否进入强力清除模式', '请确认是否需要在白名单内填入不想移除的动态。<li>建议在关注数达到上限时使用本功能</li>', ['确定', '取消'], function () {
                                 Toollayer.confirm('是否进入强力清除模式', '请再次确定', ['确定', '取消'], async function () {
                                     let offset = '0', time = 0, p1 = $.Deferred(), p2 = $.Deferred();
+                                    const { whitelist } = config;
                                     const {
                                         day,
                                         page
@@ -2315,9 +2334,7 @@
                                                     const { type, createtime, dynamic_id } = res;
                                                     if (type === 1) {
                                                         const reg1 = new RegExp(dynamic_id);
-                                                        if (createtime < _time) {
-                                                            !reg1.test(config.whitelist) ? BiliAPI.rmDynamic(dynamic_id) : void 0;
-                                                        }
+                                                        if (createtime < _time && !reg1.test(whitelist)) BiliAPI.rmDynamic(dynamic_id);
                                                     }
                                                 }
                                                 Tooltip.log(`第${index}页中的转发动态全部删除成功`)
@@ -2336,7 +2353,8 @@
                                         }
                                         for (let index = 0; index < rmup.length; index++) {
                                             const uid = rmup[index];
-                                            BiliAPI.cancelAttention(uid);
+                                            const reg2 = new RegExp(uid);
+                                            if(!reg2.test(whitelist)) BiliAPI.cancelAttention(uid);
                                             await Base.delay(Number(time) * 1000);
                                         }
                                         p2.resolve();
