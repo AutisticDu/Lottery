@@ -1,15 +1,44 @@
 // ==UserScript==
 // @name         屏蔽自己的抽奖动态
 // @namespace    shanmite
-// @version      0.2
+// @version      0.3
 // @description  移除自己的抽奖动态(只是隐藏)
 // @author       Shanmite
 // @include      /^https?:\/\/t\.bilibili\.com\/\?/
-// @grant        none
+// @grant        GM_setValue
+// @grant        GM_getValue
 // ==/UserScript==
-(function() {
+(async function () {
     'use strict';
-    let uname = '';
+    const storage = {
+        /**
+         * 获取本地值
+         * @param {string} key
+         * @returns {Promise<string>}
+         */
+        async get(key) {
+            if (typeof GM_getValue === 'undefined') {
+                return localStorage.getItem(key)
+            } else {
+                return await GM_getValue(key)
+            }
+        },
+        /**
+         * 存储本地值
+         * @param {string} key
+         * @param {string} value 
+         */
+        async set(key, value) {
+            if (typeof GM_setValue === 'undefined') {
+                localStorage.setItem(key, value);
+                return;
+            } else {
+                await GM_setValue(key, value)
+                return;
+            }
+        }
+    }
+    let uname = await storage.get('uname') || '';
     const eventBus = (() => {
         const eTarget = new EventTarget()
             , module = {
@@ -46,12 +75,26 @@
             }
         return module;
     })();
-    const createCompleteElement = (StructInfo) => {
+    /**
+     * 生成一段文档片段
+     * @param {
+        {
+            tagname: string;
+            attr?: {
+                [index: string]:string
+            };
+            script?: (el: Element) => void;
+            text?: string;
+            children?: DocumentFragment[];
+        }
+    } StructInfo
+     * @returns {DocumentFragment}
+     */
+    function createCompleteElement(StructInfo) {
         const { tagname, attr, script, text, children } = StructInfo;
-        if (typeof tagname !== 'string') throw new TypeError('at tagname');
         let frg = document.createDocumentFragment();
-        const el = document.createElement(tagname);
-        if (typeof text === 'string' && text !== '') el.textContent = text;
+        let el = typeof tagname === 'string' ? document.createElement(tagname) : document.createDocumentFragment();
+        if (typeof text === 'string' && text !== '') el.innerHTML = text;
         if (typeof attr === 'object') {
             Object.entries(attr).forEach(([key, value]) => {
                 el.setAttribute(key, value);
@@ -65,29 +108,40 @@
         }
         frg.appendChild(el);
         return frg;
-    };
+    }
     document.body.appendChild(createCompleteElement({
-        tagname: 'button',
-        attr: {
-            style: "position:fixed;z-index:99999;right:30px;top:65%;"
-        },
-        script: el => {
-            el.addEventListener('click',()=>{uname = window.prompt("请输入要屏蔽的用户名","")})
-        },
-        text: `点击输入要屏蔽的用户名`,
+        children: [
+            createCompleteElement({
+                tagname: 'button',
+                attr: {
+                    style: "position:fixed;z-index:99999;right:30px;top:65%;"
+                },
+                script: el => {
+                    el.addEventListener('click', () => {
+                        uname = window.prompt("请输入要屏蔽的用户名", "");
+                        storage.set('uname',uname);
+                    })
+                },
+                text: `点击输入要屏蔽的用户名`
+            }),
+            createCompleteElement({
+                tagname: 'button',
+                attr: {
+                    style: "position:fixed;z-index:99999;right:30px;top:70%;"
+                },
+                script: el => {
+                    el.innerText = `屏蔽${uname}`;
+                    el.addEventListener('click', () => {
+                        el.innerText = `屏蔽${uname}`;
+                        eventBus.emit('clear', uname);
+                    });
+                },
+                text: `屏蔽`,
+            })
+        ]
     }));
-    document.body.appendChild(createCompleteElement({
-        tagname: 'button',
-        attr: {
-            style: "position:fixed;z-index:99999;right:30px;top:70%;"
-        },
-        script: el => {
-            el.addEventListener('click', () => { eventBus.emit('clear', uname); el.innerText = `屏蔽${uname}` });
-        },
-        text: `屏蔽`,
-    }));
-    eventBus.on('clear',({ detail })=>{
-        if (detail === '') {alert('请输入用户名');return}
+    eventBus.on('clear', ({ detail }) => {
+        if (detail === '') { alert('请输入用户名'); return }
         let cards = document.querySelectorAll('div.card');
         cards.forEach(card => {
             let c_pointer = card.querySelectorAll('a.c-pointer');

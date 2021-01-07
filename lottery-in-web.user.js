@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bili动态抽奖助手
 // @namespace    http://tampermonkey.net/
-// @version      3.8.1
+// @version      3.8.2
 // @description  自动参与B站"关注转发抽奖"活动
 // @author       shanmite
 // @include      /^https?:\/\/space\.bilibili\.com/[0-9]*/
@@ -1619,7 +1619,7 @@
                     isLottery = ts > now_ts_10 && ts < now_ts_10 + maxday;
                     isSendChat = chatmodel[0] === '1';
                 } else if (!hasOfficialLottery && model[1] === '1') {
-                    if (!/奖/.test(description)) continue;
+                    if (!/[抽奖]/.test(description)) continue;
                     ts = Base.getLotteryNotice(description).ts;
                     if (!official_verify) {
                         const followerNum = await BiliAPI.getUserInfo(uid);
@@ -1635,9 +1635,9 @@
                     const reg2 = new RegExp(dyid);
                     if (reg1.test(blacklist) || reg2.test(blacklist)) continue;
                     /* 判断是否关注过 */
-                    reg1.test(self.attentionList) ? void 0 : onelotteryinfo.uid = uid;
+                    if(!reg1.test(self.attentionList)) onelotteryinfo.uid = uid;
                     /* 判断是否转发过 */
-                    reg2.test(await GlobalVar.getAllMyLotteryInfo()) ? void 0 : onelotteryinfo.dyid = dyid;
+                    if(!reg2.test(await GlobalVar.getAllMyLotteryInfo())) onelotteryinfo.dyid = dyid;
                     /* 根据动态的类型决定评论的类型 */
                     onelotteryinfo.type = (type === 2) ? 11 : (type === 4) ? 17 : 0;
                     /* 是否评论 */
