@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bili动态抽奖助手
 // @namespace    http://tampermonkey.net/
-// @version      3.8.2
+// @version      3.8.3
 // @description  自动参与B站"关注转发抽奖"活动
 // @author       shanmite
 // @include      /^https?:\/\/space\.bilibili\.com/[0-9]*/
@@ -1595,7 +1595,7 @@
                 protoLotteryInfo = typeof self.UID === 'number' ? await self.getLotteryInfoByUID(self.UID) : await self.getLotteryInfoByTag(self.tag_name);
             if (protoLotteryInfo === null) return [];
             let alllotteryinfo = [];
-            const { model, chatmodel, maxday: _maxday, minfollower, blockword, blacklist } = config;
+            const { model, chatmodel, only_followed, maxday: _maxday, minfollower, blockword, blacklist } = config;
             const maxday = _maxday === '-1' || _maxday === '' ? Infinity : (Number(_maxday) * 86400);
             for (const info of protoLotteryInfo) {
                 const { uid, dyid, official_verify, befilter, rid, des, type, hasOfficialLottery } = info;
@@ -1631,13 +1631,14 @@
                     isSendChat = chatmodel[1] === '1';
                 }
                 if (isLottery) {
-                    const reg1 = new RegExp(uid);
-                    const reg2 = new RegExp(dyid);
-                    if (reg1.test(blacklist) || reg2.test(blacklist)) continue;
                     /* 判断是否关注过 */
-                    if(!reg1.test(self.attentionList)) onelotteryinfo.uid = uid;
+                    const isFollowed = (new RegExp(uid)).test(self.attentionList);
                     /* 判断是否转发过 */
-                    if(!reg2.test(await GlobalVar.getAllMyLotteryInfo())) onelotteryinfo.dyid = dyid;
+                    const isRelay = (new RegExp(dyid)).test(await GlobalVar.getAllMyLotteryInfo());
+                    if (only_followed === '1' && !isFollowed) continue;
+                    if ((new RegExp(dyid + '|' + uid)).test(blacklist)) continue;
+                    if (!isFollowed) onelotteryinfo.uid = uid;
+                    if (!isRelay) onelotteryinfo.dyid = dyid;
                     /* 根据动态的类型决定评论的类型 */
                     onelotteryinfo.type = (type === 2) ? 11 : (type === 4) ? 17 : 0;
                     /* 是否评论 */
@@ -1998,6 +1999,25 @@
                                                             ]
                                                         }),
                                                         createCompleteElement({
+                                                            tagname: 'br',
+                                                        }),
+                                                        createCompleteElement({
+                                                            tagname: 'label',
+                                                            text: '仅转发已关注up的抽奖',
+                                                            children: [
+                                                                createCompleteElement({
+                                                                    tagname: 'input',
+                                                                    attr: {
+                                                                        type: 'checkbox',
+                                                                        name: 'only_followed'
+                                                                    },
+                                                                    script: el => {
+                                                                        config.only_followed === '1' ? el.checked = 'checked' : void 0;
+                                                                    }
+                                                                })
+                                                            ]
+                                                        }),
+                                                        createCompleteElement({
                                                             tagname: 'p',
                                                             text: '开奖时间(默认-1:不限):',
                                                         }),
@@ -2335,6 +2355,7 @@
                                                     if (type === 1) {
                                                         const reg1 = new RegExp(dynamic_id);
                                                         if (createtime < _time && !reg1.test(whitelist)) BiliAPI.rmDynamic(dynamic_id);
+                                                        await Base.delay(Number(time) * 1000);
                                                     }
                                                 }
                                                 Tooltip.log(`第${index}页中的转发动态全部删除成功`)
@@ -2354,7 +2375,7 @@
                                         for (let index = 0; index < rmup.length; index++) {
                                             const uid = rmup[index];
                                             const reg2 = new RegExp(uid);
-                                            if(!reg2.test(whitelist)) BiliAPI.cancelAttention(uid);
+                                            if (!reg2.test(whitelist)) BiliAPI.cancelAttention(uid);
                                             await Base.delay(Number(time) * 1000);
                                         }
                                         p2.resolve();
@@ -2400,6 +2421,7 @@
                         let newConfig = {
                             model: '',
                             chatmodel: '',
+                            only_followed: '',
                             maxday: '',
                             scan_time: '',
                             wait: '',
@@ -2415,6 +2437,7 @@
                         const {
                             model,
                             chatmodel,
+                            only_followed,
                             maxday,
                             scan_time,
                             wait,
@@ -2431,6 +2454,7 @@
                             model[i].checked ? newConfig.model += '1' : newConfig.model += '0';
                             chatmodel[i].checked ? newConfig.chatmodel += '1' : newConfig.chatmodel += '0';
                         }
+                        only_followed.checked ? newConfig.only_followed += '1' : newConfig.only_followed += '0';
                         newConfig.maxday = Number(maxday.value) < 0 ? '-1' : maxday.value;
                         newConfig.scan_time = (Number(scan_time.value) * 60000).toString();
                         newConfig.wait = (Number(wait.value) * 1000).toString();
