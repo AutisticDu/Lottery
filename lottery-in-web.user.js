@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bili动态抽奖助手
 // @namespace    http://tampermonkey.net/
-// @version      3.8.4
+// @version      3.8.5
 // @description  自动参与B站"关注转发抽奖"活动
 // @author       shanmite
 // @include      /^https?:\/\/space\.bilibili\.com/[0-9]*/
@@ -2709,7 +2709,8 @@
                 }, Number(config.scan_time))
                 return;
             }
-            (new Monitor(Lottery[count.next()])).init();
+            const nlottery = Number(Lottery[count.next()]);
+            (new Monitor(isNaN(nlottery) ? Lottery[count.next()] : nlottery)).init();
         });
         eventBus.on('Modify_settings', async ({ detail }) => {
             await Base.storage.set('config', detail);
