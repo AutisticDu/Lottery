@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bili动态抽奖助手
 // @namespace    http://tampermonkey.net/
-// @version      3.8.3
+// @version      3.8.4
 // @description  自动参与B站"关注转发抽奖"活动
 // @author       shanmite
 // @include      /^https?:\/\/space\.bilibili\.com/[0-9]*/
@@ -811,7 +811,7 @@
          * @returns {Promise<null>}
          */
         autoAttention: uid => {
-            return new Promise((resolve, reject) => {
+            return new Promise((resolve) => {
                 Ajax.post({
                     url: 'https://api.bilibili.com/x/relation/modify',
                     hasCookies: true,
@@ -842,7 +842,7 @@
                                 success: responseText => {
                                     if (/^{"code":0/.test(responseText)) {
                                         Tooltip.log('[自动关注]关注+1');
-                                        resolve()
+                                        resolve();
                                     } else {
                                         Tooltip.warn(`[自动关注]失败,请在"错误信息"处手动关注\n${responseText}`);
                                         errorbar.appendChild(Base.createCompleteElement({
@@ -862,7 +862,7 @@
                                             },
                                             text: `未成功关注的up|uid:${uid}`
                                         }))
-                                        reject()
+                                        resolve();
                                     }
                                 }
                             })
@@ -1660,11 +1660,9 @@
                 BiliAPI.autoRelay(GlobalVar.myUID, dyid);
                 BiliAPI.autolike(dyid);
                 if (typeof uid === 'number') {
-                    BiliAPI.autoAttention(uid).then(() => {
-                        BiliAPI.movePartition(uid, this.tagid)
-                    }, () => {
-                        Tooltip.warn('未关注无法移动分区');
-                    })
+                    await BiliAPI.autoAttention(uid);
+                    await Base.delay(3000);
+                    BiliAPI.movePartition(uid, this.tagid);
                 }
                 if (typeof rid === 'string' && type !== 0) {
                     BiliAPI.sendChat(rid, Base.getRandomStr(config.chat), type, true, dyid);
@@ -2676,26 +2674,7 @@
             );
         }
         /* 注册事件 BEGIN */
-        const count = Base.counter();
-        const Lottery = [...config.UIDs, ...config.TAGs];
-        eventBus.on('Turn_on_the_Monitor', () => {
-            if (Lottery.length === 0) { Tooltip.log('抽奖信息为空'); return }
-            if (count.value() === Lottery.length) {
-                Tooltip.log('所有动态转发完毕');
-                Tooltip.log('[运行结束]目前无抽奖信息,过一会儿再来看看吧');
-                count.clear();
-                Tooltip.log(`${Number(config.scan_time) / 60000}分钟后再次扫描`);
-                setTimeout(() => {
-                    eventBus.emit('Turn_on_the_Monitor');
-                }, Number(config.scan_time))
-                return;
-            }
-            (new Monitor(Lottery[count.next()])).init();
-        });
-        eventBus.on('Modify_settings', async ({ detail }) => {
-            await Base.storage.set('config', detail);
-            Tooltip.log('设置修改成功');
-        })
+        let Lottery;
         eventBus.on('Show_Main_Menu', async () => {
             Tooltip.log('加载主菜单');
             let configstr = await Base.storage.get('config');
@@ -2714,7 +2693,27 @@
                 })
                 config = _config;
             }
+            Lottery = [...config.UIDs, ...config.TAGs].filter(lottery => lottery !== '');
             (new MainMenu()).init();
+        })
+        const count = Base.counter();
+        eventBus.on('Turn_on_the_Monitor', () => {
+            if (Lottery.length === 0) { Tooltip.log('抽奖信息为空'); return }
+            if (count.value() === Lottery.length) {
+                Tooltip.log('所有动态转发完毕');
+                Tooltip.log('[运行结束]目前无抽奖信息,过一会儿再来看看吧');
+                count.clear();
+                Tooltip.log(`${Number(config.scan_time) / 60000}分钟后再次扫描`);
+                setTimeout(() => {
+                    eventBus.emit('Turn_on_the_Monitor');
+                }, Number(config.scan_time))
+                return;
+            }
+            (new Monitor(Lottery[count.next()])).init();
+        });
+        eventBus.on('Modify_settings', async ({ detail }) => {
+            await Base.storage.set('config', detail);
+            Tooltip.log('设置修改成功');
         })
         /* 注册事件 END */
         eventBus.emit('Show_Main_Menu');
