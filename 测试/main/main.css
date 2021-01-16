@@ -35,7 +35,7 @@
     position: absolute;
     right: 45px;
     bottom: 35px;
-    background-color: #E5F4FB;
+    background-color: #e5f4fb;
     padding: 5px;
     border-radius: 5px;
     box-shadow: grey 0px 0px 10px 0px;
@@ -50,13 +50,35 @@
     padding: 5px;
     margin: 4px;
     box-shadow: 0 0 2px #00000075;
-    line-height: 14px
+    line-height: 14px;
 }
 .shanmitemenu button:hover {
-    background-color: #0e8bbd
+    background-color: #14a0d8;
+}
+.shanmitemenu button:active {
+    background-color: #0e8bbd;
+    margin-right: 4px;
+    margin-bottom: 3px;
 }
 .shanmitemenu button:focus {
     outline: none;
+}
+.shanmitemenu [type="checkbox"] {
+    margin-inline: 4px;
+    vertical-align: middle;
+}
+.shanmitemenu [type="number"] {
+    margin-inline-end: 4px;
+    vertical-align: middle;
+    outline: none;
+    border: 1px solid #6d757a;
+    border-radius: 4px;
+}
+.shanmitemenu textarea {
+    outline: none;
+    border: 1px solid #6d757a;
+    border-radius: 4px;
+    resize: none;
 }
 .shanmitemenu .changetab {
     display: flex;
@@ -69,16 +91,17 @@
     border: 2px solid #26c6da;
     font-size: 14px;
     cursor: pointer;
-    transition: background-color .3s ease 0s;
+    transition: background-color 0.3s ease 0s;
     background-color: #87cfeb80;
 }
 .shanmitemenu .changetab div:hover {
     background-color: skyblue;
 }
 .shanmitemenu .changetab div:active {
+    border-color: #17abe6;
     background-color: #17abe6;
     position: relative;
-    top: 1px
+    top: 1px;
 }
 
 .shanmitemenu .tab {
@@ -93,7 +116,7 @@
     margin: 15px;
     padding: 5px;
     border-radius: 5px;
-    background-color: #ffffff ;
+    background-color: #ffffff;
     box-shadow: gray 0px 0px 4px 0px;
 }
 .shanmitemenu .bottom {
@@ -101,6 +124,6 @@
     justify-content: flex-end;
     align-items: flex-end;
 }
-.shanmitemenu .bottom button{
+.shanmitemenu .bottom button {
     margin-left: 10px;
 }
