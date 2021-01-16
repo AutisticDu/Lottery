@@ -18,40 +18,45 @@
 // ==/UserScript==
 (function () {
     "use strict"
-    let [Script, config, errorbar] = [{ version: `|version: ${GM_info.script.version}`, author: `@${GM_info.script.author}`, name: GM_info.script.name }, {}, {}];
+    let [Script, config, errorbar] = [
+        {
+            version: `|version: ${GM_info.script.version}`,
+            author: `@${GM_info.script.author}`,
+            name: GM_info.script.name
+        },
+        {},
+        {}
+    ];
     /**
      * 基础工具
      */
     const Base = {
         /**
          * 安全的将JSON字符串转为对象
-         * 超出精度的数转为字符串
+         * 超出精度的数应转为字符串
          * @param {string} params
          * @return {object}
          * 返回对象或空对象
          */
         strToJson(params) {
-            let iremoteparm = str => {
+            const iremoteparm = str => {
                 if (typeof str === 'string') {
                     try {
-                        var obj = JSON.parse(str);
-                        if (typeof obj === 'object' && obj) {
-                            return true;
-                        } else {
-                            return false;
-                        }
+                        const obj = JSON.parse(str);
+                        return typeof obj === 'object' && obj;
                     } catch (e) {
-                        console.error('error：' + str + '!!!' + e);
+                        console.error(e);
                         return false;
                     }
                 }
                 console.error(`${str}<- It is not a string!`);
+                return false;
             }
             if (iremoteparm(params)) {
                 let obj = JSON.parse(params);
                 return obj
             } else {
-                return {};
+                return {}
             }
         },
         /**
@@ -85,21 +90,20 @@
         },
         /**
          * 计数器 0..Infinity
-         * @returns {
-            {
-                next: () => number;
-                clear: () => void;
-                value: () => number;
-            }
-        }
+         * @typedef Counter
+         * @property {()=>Number} next
+         * @property {()=>boolean} clear
+         * @property {()=>Number} value
+         * @returns {Counter}
          */
         counter() {
-            let i = 0;
-            return {
-                next: () => i++,
-                clear: () => i = 0,
-                value: () => i
+            let c = {
+                i: 0,
+                next: () => c.i++,
+                clear: () => c.i = 0,
+                value: () => c.i
             }
+            return c
         },
         /**
          * 随机获取字符串数组中的字符串
@@ -134,26 +138,33 @@
             return true;
         },
         /**
+         * 将版本号转为数字
+         * @param {string} version
+         * @returns {Number}
+         */
+        checkVersion(version) {
+            return (version.match(/\d.*/)[0]).split('.').reduce((a, v) => a + Number(v), 0)
+        },
+        /**
          * 节流
          * @param {Function} func 
          * @param {number} delay 当函数在短时间内多次触发时，做节流，间隔delay时长再去执行
          */
         throttle(func, delay) {
-            let timer = null, // 用来保存setTimeout返回的值
-                startTime = Date.now(); // 创建节流函数的时间
+            let timer = null,/* 用来保存setTimeout返回的值 */
+                startTime = Date.now();/* 创建节流函数的时间 */
             return function () {
-                let curTime = Date.now(), // 返回的这个函数被调用的时间
-                    remaining = delay - (curTime - startTime), // 设定的delay与[上一次被调用的时间与现在的时间间隔]的差值
-                    context = this, // 上下文对象
-                    args = arguments; // 返回的这个函数执行时传入的参数
-                // 首先清掉定时器
-                clearTimeout(timer);
-                // // 假如距离上一次执行此函数的时间已经超过了设定的delay，则执行
+                let curTime = Date.now(),/* 返回的这个函数被调用的时间 */
+                    remaining = delay - (curTime - startTime),/* 设定的delay与[上一次被调用的时间与现在的时间间隔]的差值 */
+                    context = this,/* 上下文对象 */
+                    args = arguments;/* 返回的这个函数执行时传入的参数 */
+                clearTimeout(timer);/* 首先清掉定时器 */
                 if (remaining <= 0) {
+                    /* 假如距离上一次执行此函数的时间已经超过了设定的delay，则执行 */
                     func.apply(context, args);
-                    startTime = Date.now(); // 重置最后执行时间为现在
-                    // 否则，等到间隔时间达到delay时，执行函数
+                    startTime = Date.now();/* 重置最后执行时间为现在 */
                 } else {
+                    /* 否则，等到间隔时间达到delay时，执行函数 */
                     timer = setTimeout(() => {
                         func.apply(context, args);
                     }, remaining);
@@ -162,58 +173,65 @@
         },
         /**
          * 生成一段文档片段
-         * @param {
-            {
-                tagname: string;
-                attr?: {
-                    [index: string]:string
-                };
-                script?: (el: Element) => void;
-                text?: string;
-                children?: DocumentFragment[];
-            }
-        } StructInfo
+         * @typedef DocumentStruct
+         * @property {string} [tagname]
+         * @property {Object.<string,string>} [attr]
+         * @property {(el: Element) => void} [script]
+         * @property {string} [text]
+         * @property {Array<DocumentFragment>} [children]
+         * @param {DocumentStruct} StructInfo
          * @returns {DocumentFragment}
          */
         createCompleteElement(StructInfo) {
             const { tagname, attr, script, text, children } = StructInfo;
             let frg = document.createDocumentFragment();
-            let el = typeof tagname === 'string' ? document.createElement(tagname) : document.createDocumentFragment();
+            let el = typeof tagname === 'string' ?
+                document.createElement(tagname) : document.createDocumentFragment();
             if (typeof text === 'string' && text !== '') el.innerHTML = text;
-            if (typeof attr === 'object') {
-                Object.entries(attr).forEach(([key, value]) => {
-                    el.setAttribute(key, value);
-                })
-            }
+            if (typeof attr === 'object') Object.entries(attr).forEach(
+                ([key, value]) => { el.setAttribute(key, value) }
+            );
             if (typeof script === 'function') script(el);
-            if (children instanceof Array) {
-                children.forEach(child => {
-                    if (child instanceof DocumentFragment) el.appendChild(child)
-                });
-            }
+            if (children instanceof Array) children.forEach(
+                child => { if (child instanceof DocumentFragment) el.appendChild(child) }
+            );
             frg.appendChild(el);
             return frg;
         },
         /**
+         * 插入Css
+         * @param {string} text GM_resource_name
+         * @param {string} myCss
+         */
+        addCss(text, myCss) {
+            const myCSS = Base.createCompleteElement({
+                tagname: 'style',
+                attr: {
+                    type: "text/css"
+                },
+                text: myCss + GM_getResourceText(text),
+            });
+            document.getElementsByTagName('head')[0].appendChild(myCSS);
+        },
+        /**
          * 提取开奖信息
+         * @typedef LotteryNotice 开奖信息
+         * @property {number} ts 0
+         * @property {string} text '开奖时间: 未填写开奖时间'
+         * @property {string} item '请自行查看'
+         * @property {string} isMe '请自行查看'
          * @param {string} des 描述
-         * @returns {
-                {
-                    ts: number|0;
-                    text:string|'开奖时间: 未填写开奖时间';
-                    item:string|'请自行查看';
-                    isMe:string|'请自行查看';
-                }
-         * }
+         * @returns {LotteryNotice}
          */
         getLotteryNotice(des) {
             const r = /([\d零一二两三四五六七八九十]+)[.月]([\d零一二两三四五六七八九十]+)[日号]?/;
-            if (des === '') return {
+            let defaultRet = {
                 ts: 0,
-                text: `开奖时间: 未填写开奖时间`,
+                text: '开奖时间: 未填写开奖时间',
                 item: '请自行查看',
                 isMe: '请自行查看'
             }
+            if (des === '') return defaultRet
             const _date = r.exec(des) || [];
             const timestamp10 = ((month, day) => {
                 if (month && day) {
@@ -222,29 +240,25 @@
                 }
                 return 0
             })(_date[1], _date[2])
-            if (timestamp10 === 0) return {
-                ts: 0,
-                text: `开奖时间: 未填写开奖时间`,
-                item: '请自行查看',
-                isMe: '请自行查看'
-            }
+            if (timestamp10 === 0) return defaultRet
             const timestamp13 = timestamp10 * 1000,
                 time = new Date(timestamp13);
             const remain = (() => {
                 const timestr = ((timestamp13 - Date.now()) / 86400000).toString()
                     , timearr = timestr.replace(/(\d+)\.(\d+)/, "$1,0.$2").split(',');
-                const text = timearr[0][0] === '-' ? `开奖时间已过${timearr[0].substring(1)}天余${parseInt(timearr[1] * 24)}小时` : `还有${timearr[0]}天余${parseInt(timearr[1] * 24)}小时`;
+                const text = timearr[0][0] === '-' ?
+                    `开奖时间已过${timearr[0].substring(1)}天余${parseInt(timearr[1] * 24)}小时` :
+                    `还有${timearr[0]}天余${parseInt(timearr[1] * 24)}小时`;
                 return text
             })();
             return {
+                ...defaultRet,
                 ts: timestamp10,
-                text: `开奖时间: ${time.toLocaleString()} ${remain}`,
-                item: '请自行查看',
-                isMe: '请自行查看'
+                text: `开奖时间: ${time.toLocaleString()} ${remain}`
             };
         },
         /**
-         * @returns {Promise<{}>} 设置
+         * @returns {Promise<object>} 设置
          */
         getMyJson() {
             return new Promise((resolve) => {
@@ -255,7 +269,7 @@
                         resolve(JSON.parse(response.responseText));
                     }
                 });
-            });
+            })
         },
         /**存储 */
         storage: {
@@ -274,7 +288,7 @@
             /**
              * 存储本地值
              * @param {string} key
-             * @param {string} value 
+             * @param {Promise<void>} value
              */
             async set(key, value) {
                 if (typeof GM_setValue === 'undefined') {
@@ -288,35 +302,19 @@
         }
     }
     /**
-     * 加载Css
-     * @param {string} text 
-     * @param {string} myCss
-     */
-    const addCss = (text, myCss) => {
-        const c = Base.createCompleteElement
-            , myCSS = c({
-                tagname: 'style',
-                attr: {
-                    type: "text/css"
-                },
-                text: myCss + GM_getResourceText(text),
-            })
-        document.getElementsByTagName('head')[0].appendChild(myCSS);
-    }
-    /**
      * 浮动提示框
      */
     const Tooltip = (() => {
-        const createCompleteElement = Base.createCompleteElement,
-            cssContent = ".shanmitelogbox {z-index:99999;position:fixed;top:0;right:0;max-width:400px;max-height:600px;overflow-y:scroll;scroll-behavior:smooth;}.shanmitelogbox::-webkit-scrollbar {width:0;}.shanmitelogbox .line {display:flex;justify-content:flex-end;}.shanmitelogbox .Info {line-height:26px;min-height:26px;margin:6px 0;border-radius:6px;padding:0px 10px;transition:background-color 1s;font-size:16px;color:#fff;box-shadow:1px 1px 3px 0px #000;}.shanmitelogbox .Log {background-color:#81ec81;}.shanmitelogbox .Warn {background-color:#fd2d2d;}",
+        const cCElement = Base.createCompleteElement
+            , cssContent = ".shanmitelogbox {z-index:99999;position:fixed;top:0;right:0;max-width:400px;max-height:600px;overflow-y:scroll;scroll-behavior:smooth;}.shanmitelogbox::-webkit-scrollbar {width:0;}.shanmitelogbox .line {display:flex;justify-content:flex-end;}.shanmitelogbox .Info {line-height:26px;min-height:26px;margin:6px 0;border-radius:6px;padding:0px 10px;transition:background-color 1s;font-size:16px;color:#fff;box-shadow:1px 1px 3px 0px #000;}.shanmitelogbox .Log {background-color:#81ec81;}.shanmitelogbox .Warn {background-color:#fd2d2d;}"
             /** 显示运行日志 */
-            LogBox = createCompleteElement({
+            , LogBox = cCElement({
                 tagname: 'div',
                 attr: {
                     class: 'shanmitelogbox',
                 },
                 children: [
-                    createCompleteElement({
+                    cCElement({
                         tagname: 'style',
                         attr: {
                             type: 'text/css'
@@ -333,7 +331,7 @@
          * @param {string} text 
          */
         const add = (classname, text) => {
-            const log = createCompleteElement({
+            const log = cCElement({
                 tagname: 'div',
                 attr: {
                     class: 'line',
@@ -344,7 +342,7 @@
                     }, 6000)/* 自动移除 */
                 },
                 children: [
-                    createCompleteElement({
+                    cCElement({
                         tagname: 'span',
                         attr: {
                             class: classname,
@@ -361,29 +359,28 @@
                 ]
             });
             logbox.appendChild(log);
-        },
-            mod = {
-                /**
-                 * 提示信息
-                 * @param {string} text
-                 */
-                log: text => {
-                    console.log(text);
-                    add('Info Log', text)
-                },
-                /**
-                 * 警告信息
-                 * @param {string} text 
-                 */
-                warn: text => {
-                    console.warn(text);
-                    add('Info Warn', text)
-                }
+        }
+        return {
+            /**
+             * 提示信息
+             * @param {string} text
+             */
+            log: text => {
+                console.log(text);
+                add('Info Log', text)
+            },
+            /**
+             * 警告信息
+             * @param {string} text 
+             */
+            warn: text => {
+                console.warn(text);
+                add('Info Warn', text)
             }
-        return mod;
+        }
     })()
     /**
-     * 弹窗
+     * 弹窗组件
      */
     const Toollayer = (() => {
         const tools = {
@@ -426,116 +423,45 @@
      * 事件总线
      */
     const eventBus = (() => {
-        const eTarget = new EventTarget()
-            , mod = {
-                /**
-                 * 监听事件
-                 * @param {string} type
-                 * @param {(e: CustomEvent<string>) => void} fn
-                 * @example fn:
-                 * ({ detail }) => detail;
-                 * (e) => e.detail
-                 * @param {boolean | AddEventListenerOptions} [opt]
-                 */
-                on: (type, fn, opt) => {
-                    eTarget.addEventListener(type, fn, opt);
-                },
-                /**
-                 * 取消监听事件
-                 * @param {string} type
-                 * @param {(e: CustomEvent<string>) => void} fn 
-                 * @param {boolean | AddEventListenerOptions} [opt]
-                 */
-                off: (type, fn, opt) => {
-                    eTarget.removeEventListener(type, fn, opt);
-                },
-                /**
-                 * 触发事件
-                 * @param {string} type
-                 * @param {string} [detail]
-                 */
-                emit: (type, detail) => {
-                    const event = new CustomEvent(type, { detail });
-                    eTarget.dispatchEvent(event);
-                }
+        const eTarget = new EventTarget();
+        return {
+            /**
+             * 监听事件
+             * @param {string} type
+             * @param {(e: CustomEvent<string>) => void} fn
+             * ```js
+             * ({ detail }) => detail;
+             * (e) => e.detail
+             * ```
+             * @param {boolean | AddEventListenerOptions} [opt]
+             */
+            on(type, fn, opt) {
+                eTarget.addEventListener(type, fn, opt);
+            },
+            /**
+             * 取消监听事件
+             * @param {string} type
+             * @param {(e: CustomEvent<string>) => void} fn 
+             * @param {boolean | AddEventListenerOptions} [opt]
+             */
+            off(type, fn, opt) {
+                eTarget.removeEventListener(type, fn, opt);
+            },
+            /**
+             * 触发事件
+             * @param {string} type
+             * @param {string} [detail]
+             */
+            emit(type, detail) {
+                const event = new CustomEvent(type, { detail });
+                eTarget.dispatchEvent(event);
             }
-        return mod;
+        }
     })()
     /**
      * Ajax请求对象
      */
     const Ajax = (() => {
-        /**
-         * 发送Get请求
-         * @param {Object} options
-         */
-        function get(options) {
-            if (checkOptions(options)) {
-                let xhr = new XMLHttpRequest();
-                let url = options.url,
-                    queryStringsObj = options.queryStringsObj;
-                if (typeof queryStringsObj === 'object') {
-                    url = url + '?' + objToURLCode(queryStringsObj);
-                }
-                xhr.open("GET", url);
-                if (options.hasCookies) {
-                    xhr.withCredentials = true;
-                }
-                xhr.timeout = 3000;
-                xhr.addEventListener('load', () => {
-                    if (xhr.status === 200) {
-                        options.success(xhr.responseText)
-                    } else {
-                        console.error(`status:${xhr.status}`);
-                        options.success(`{"code":666,"msg":"错误代码${xhr.status}"}`);
-                    }
-                })
-                xhr.addEventListener('error', () => {
-                    console.error('ajax请求出错')
-                    options.success('{"code":666,"msg":"ajax请求出错"}');
-                })
-                xhr.addEventListener('timeout', () => {
-                    console.error('请求超时')
-                    options.success('{"code":666,"msg":"请求超时"}');
-                })
-                xhr.send()
-            }
-        }
-        /**
-         * 发送Post请求
-         * @param {object} options
-         */
-        function post(options) {
-            if (checkOptions(options)) {
-                let xhr = new XMLHttpRequest();
-                let data = options.data;
-                let dataType = options.dataType
-                xhr.open("POST", options.url);
-                xhr.setRequestHeader('Content-Type', dataType);
-                if (options.hasCookies) {
-                    xhr.withCredentials = true;
-                }
-                xhr.timeout = 3000;
-                xhr.addEventListener('load', () => {
-                    if (xhr.status === 200) {
-                        options.success(xhr.responseText)
-                    } else {
-                        console.error(`status:${xhr.status}`);
-                        options.success(`{"code":666,"msg":"错误代码${xhr.status}"}`);
-                    }
-                })
-                xhr.addEventListener('error', () => {
-                    console.error('ajax请求出错')
-                    options.success('{"code":666,"msg":"ajax请求出错"}');
-                })
-                xhr.addEventListener('timeout', () => {
-                    console.error('请求超时')
-                    options.success('{"code":666,"msg":"请求超时"}');
-                })
-                let body = (/urlencoded/.test(dataType)) ? objToURLCode(data) : data;
-                xhr.send(body)
-            }
-        }
         /**
          * 检查options是否符合要求
          * @param {object} options
@@ -579,10 +505,74 @@
             }
             return _result.join('&');
         }
+        /**
+         * 请求
+         * @param {string} method
+         * @param {object} options
+         */
+        function request(method, options) {
+            if (checkOptions(options)) {
+                let xhr = new XMLHttpRequest();
+                const { url: _url, queryStringsObj, data, dataType, hasCookies } = options
+                    , url = typeof queryStringsObj === 'object' ?
+                        _url + '?' + objToURLCode(queryStringsObj) : _url;
+                switch (method) {
+                    case 'GET':
+                        xhr.open("GET", url);
+                        break;
+                    case 'POST':
+                        xhr.open("POST", url);
+                        xhr.setRequestHeader('Content-Type', dataType);
+                        break;
+                    default:
+                        break;
+                }
+                if (hasCookies) xhr.withCredentials = true;
+                xhr.timeout = 3000;
+                xhr.addEventListener('load', () => {
+                    if (xhr.status === 200) {
+                        options.success(xhr.responseText)
+                    } else {
+                        console.error(`status:${xhr.status}`);
+                        options.success(`{"code":${xhr.status},"msg":"频繁访问"}`);
+                    }
+                })
+                xhr.addEventListener('error', () => {
+                    console.error('ajax请求出错')
+                    options.success('{"code":-1,"msg":"ajax请求出错"}');
+                })
+                xhr.addEventListener('timeout', () => {
+                    console.error('请求超时')
+                    options.success('{"code":-1,"msg":"请求超时"}');
+                })
+                switch (method) {
+                    case 'GET':
+                        xhr.send()
+                        break;
+                    case 'POST':
+                        xhr.send((/urlencoded/.test(dataType)) ? objToURLCode(data) : data)
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
         return {
-            'get': get,
-            'post': post
-        };
+            /**
+             * 发送Get请求
+             * @param {Object} options
+             */
+            get(options) {
+                request("GET", options);
+            },
+            /**
+             * 发送Post请求
+             * @param {object} options
+             */
+            post(options) {
+                request("POST", options);
+            }
+        }
     })()
     /**
      * 网络请求
@@ -748,16 +738,13 @@
         },
         /**
          * 获取开奖信息
-         * @param {string} dyid
-         * 动态id
-         * @returns {
-            Promise<{
-                ts:number|0;
-                text:string|'获取开奖信息失败';
-                item:string|'null';
-                isMe:string|'未知';
-            }>
-        } 开奖时间
+         * @typedef LotteryNotice 开奖信息
+         * @property {number} ts 0
+         * @property {string} text '获取开奖信息失败'
+         * @property {string} item 'null'
+         * @property {string} isMe '未知'
+         * @param {string} dyid 动态id
+         * @returns {Promise<LotteryNotice>} 开奖时间
          */
         getLotteryNotice: dyid => {
             return new Promise((resolve) => {
@@ -1204,8 +1191,12 @@
      */
     const GlobalVar = (() => {
         const [myUID, csrf] = (() => {
-            const a = /((?<=DedeUserID=)\d+).*((?<=bili_jct=)\w+)/g.exec(document.cookie);
-            return [a[1], a[2]]
+            let Var = {};
+            document.cookie.split(/\s*;\s*/).forEach(item => {
+                const _item = item.split('=');
+                if (['DedeUserID', 'bili_jct'].indexOf(_item[0]) !== -1) Var[_item[0]] = _item[1];
+            })
+            return [Var.DedeUserID, Var.bili_jct]
         })();
         /**
          * 获取本地存储信息
@@ -1252,7 +1243,7 @@
                 obj[odyid][1] = typeof _ts === 'undefined' ? ts : ts === 0 ? _ts : ts;
                 obj[odyid][2] = ouid;
                 await Base.storage.set(myUID, JSON.stringify(obj));
-                Tooltip.log(`新增数据存储至本地`);
+                Tooltip.log(`更新本地数据`);
                 return;
             },
             /**
@@ -1644,6 +1635,7 @@
                     /* 是否评论 */
                     isSendChat ? onelotteryinfo.rid = rid : void 0;
                     if (typeof onelotteryinfo.uid === 'undefined' && typeof onelotteryinfo.dyid === 'undefined') continue;
+                    Tooltip.log('新增一条抽奖信息存于本地')
                     await GlobalVar.addLotteryInfo('', dyid, ts, uid);
                     alllotteryinfo.push(onelotteryinfo);
                 }
@@ -2287,133 +2279,145 @@
                         }
                         break;
                     case 'rmdy':
-                        (() => {
-                            let [i, j, k, time] = [0, 0, 0, 0];
-                            const linkMsg = (link, msg = link) => '<a href="' + link + 'target="_blank" style = "color:#00a1d6;text-decoration:underline;">' + msg + '</a>';
-                            async function rm(model) {
-                                const str = await GlobalVar.getAllMyLotteryInfo()
-                                    , AllMyLotteryInfo = JSON.parse(str);
-                                for (const odyid in AllMyLotteryInfo) {
-                                    i++;
-                                    const [dyid, ts, ouid] = AllMyLotteryInfo[odyid];
-                                    if (ts === 0) continue;
-                                    j++;
-                                    if (ts > (Date.now() / 1000)) continue;
-                                    k++;
-                                    const { isMe } = await BiliAPI.getLotteryNotice(dyid);
-                                    isMe === '中奖了！！！' ? Toollayer.alert('恭喜！！！中奖了', `前往 ${linkMsg(`https://t.bilibili.com/${dyid}`)} 查看。`) : Tooltip.log('未中奖');
-                                    Tooltip.log(`移除过期官方或非官方动态${dyid}`);
-                                    if (typeof dyid !== 'undefined' && model[0] === '1') BiliAPI.rmDynamic(dyid);
-                                    if (typeof ouid !== 'undefined' && model[1] === '1') BiliAPI.cancelAttention(ouid);
-                                    if (model === '11') GlobalVar.deleteLotteryInfo(odyid);
-                                    await Base.delay(time * 1000);
+                        Toollayer.confirm(
+                            '是否清理动态',
+                            '将从本地存储中获取<code>dyid</code>和<code>uid</code><br>清理过程中将检测官抽是否中奖',
+                            ['确定', '取消'],
+                            () => {
+                                let [i, j, k, time] = [0, 0, 0, 0];
+                                const linkMsg = (link, msg = link) => '<a href="' + link + 'target="_blank" style = "color:#00a1d6;text-decoration:underline;">' + msg + '</a>';
+                                async function rm(model) {
+                                    const str = await GlobalVar.getAllMyLotteryInfo()
+                                        , AllMyLotteryInfo = JSON.parse(str);
+                                    for (const odyid in AllMyLotteryInfo) {
+                                        i++;
+                                        const [dyid, ts, ouid] = AllMyLotteryInfo[odyid];
+                                        if (ts === 0) continue;
+                                        j++;
+                                        if (ts > (Date.now() / 1000)) continue;
+                                        k++;
+                                        const { isMe } = await BiliAPI.getLotteryNotice(dyid);
+                                        isMe === '中奖了！！！' ? Toollayer.alert('恭喜！！！中奖了', `前往 ${linkMsg(`https://t.bilibili.com/${dyid}`)} 查看。`) : Tooltip.log('未中奖');
+                                        Tooltip.log(`移除过期官方或非官方动态${dyid}`);
+                                        if (typeof dyid !== 'undefined' && model[0] === '1') BiliAPI.rmDynamic(dyid);
+                                        if (typeof ouid !== 'undefined' && model[1] === '1') BiliAPI.cancelAttention(ouid);
+                                        if (model === '11') GlobalVar.deleteLotteryInfo(odyid);
+                                        await Base.delay(time * 1000);
+                                    }
+                                    Toollayer.alert('清理动态完毕', `<li>共查看<code>${i}</code>条动态</li><li>能识别开奖时间的:共<code>${j}</code>条 过期<code>${k}</code>条 未开奖<code>${j - k}</code>条</li>`);
                                 }
-                                Toollayer.alert('清理动态完毕', `<li>共查看<code>${i}</code>条动态</li><li>能识别开奖时间的:共<code>${j}</code>条 过期<code>${k}</code>条 未开奖<code>${j - k}</code>条</li>`);
-                            }
-                            const promptTime = (fn) => Toollayer.prompt(
-                                '输入停顿时间(单位秒)',
-                                0,
-                                (value) => {
-                                    isNaN(value) ? (() => { Toollayer.msg('输入数据不是数字', 2000, 2) })()
-                                        : (() => { time = Number(value); fn(); })();
-                                }
-                            );
-                            Toollayer.confirm(
-                                '选择删除的内容',
-                                '从本地存储中读取转发过的动态',
-                                ['只删除动态', '删除动态并移除关注'],
-                                () => { promptTime(() => { rm('10') }) },
-                                () => { promptTime(() => { rm('11') }) }
-                            );
-                        })()
+                                const promptTime = (fn) => Toollayer.prompt(
+                                    '输入停顿时间(单位秒)',
+                                    0,
+                                    (value) => {
+                                        isNaN(value) ? (() => { Toollayer.msg('输入数据不是数字', 2000, 2) })()
+                                            : (() => { time = Number(value); fn(); })();
+                                    }
+                                );
+                                Toollayer.confirm(
+                                    '选择删除的内容',
+                                    '从本地存储中读取转发过的动态',
+                                    ['只删除动态', '删除动态并移除关注'],
+                                    () => { promptTime(() => { rm('10') }) },
+                                    () => { promptTime(() => { rm('11') }) }
+                                );
+                            },
+                            () => { Toollayer.msg('已取消') }
+                        );
                         break;
                     case 'sudormdy':
-                        (() => {
-                            Toollayer.confirm('是否进入强力清除模式', '请确认是否需要在白名单内填入不想移除的动态。<li>建议在关注数达到上限时使用本功能</li>', ['确定', '取消'], function () {
-                                Toollayer.confirm('是否进入强力清除模式', '请再次确定', ['确定', '取消'], async function () {
-                                    let offset = '0', time = 0, p1 = $.Deferred(), p2 = $.Deferred();
-                                    const { whitelist } = config;
-                                    const {
-                                        day,
-                                        page
-                                    } = rmdyForm;
-                                    const _time = Date.now() / 1000 - Number(day.value) * 86400;
-                                    const tagid = await BiliAPI.checkMyPartition();
-                                    async function delDynamic() {
-                                        for (let index = 0; index < 1000; index++) {
-                                            const { allModifyDynamicResArray, offset: _offset } = await self.checkAllDynamic(GlobalVar.myUID, 1, Number(time) * 1000, offset);
-                                            offset = _offset;
-                                            if (index < Number(page.value)) {
-                                                Tooltip.log(`跳过第${index}页(12条)`);
-                                            } else {
-                                                Tooltip.log(`开始读取第${index}页(12条)`);
-                                                for (let index = 0; index < allModifyDynamicResArray.length; index++) {
-                                                    const res = allModifyDynamicResArray[index];
-                                                    const { type, createtime, dynamic_id } = res;
-                                                    if (type === 1) {
-                                                        const reg1 = new RegExp(dynamic_id);
-                                                        if (createtime < _time && !reg1.test(whitelist)) BiliAPI.rmDynamic(dynamic_id);
-                                                        await Base.delay(Number(time) * 1000);
+                        Toollayer.confirm(
+                            '是否进入强力清除模式',
+                            '请确认是否需要在白名单内填入不想移除的动态。<li>建议在关注数达到上限时使用本功能</li>',
+                            ['确定', '取消'],
+                            () => {
+                                Toollayer.confirm('是否进入强力清除模式', '请再次确定', ['确定', '取消'],
+                                    async () => {
+                                        let offset = '0', time = 0, p1 = $.Deferred(), p2 = $.Deferred();
+                                        const { whitelist } = config;
+                                        const {
+                                            day,
+                                            page
+                                        } = rmdyForm;
+                                        const _time = Date.now() / 1000 - Number(day.value) * 86400;
+                                        const tagid = await BiliAPI.checkMyPartition();
+                                        async function delDynamic() {
+                                            for (let index = 0; index < 1000; index++) {
+                                                const { allModifyDynamicResArray, offset: _offset } = await self.checkAllDynamic(GlobalVar.myUID, 1, Number(time) * 1000, offset);
+                                                offset = _offset;
+                                                if (index < Number(page.value)) {
+                                                    Tooltip.log(`跳过第${index}页(12条)`);
+                                                } else {
+                                                    Tooltip.log(`开始读取第${index}页(12条)`);
+                                                    for (let index = 0; index < allModifyDynamicResArray.length; index++) {
+                                                        const res = allModifyDynamicResArray[index];
+                                                        const { type, createtime, dynamic_id } = res;
+                                                        if (type === 1) {
+                                                            const reg1 = new RegExp(dynamic_id);
+                                                            if (createtime < _time && !reg1.test(whitelist)) BiliAPI.rmDynamic(dynamic_id);
+                                                            await Base.delay(Number(time) * 1000);
+                                                        }
                                                     }
+                                                    Tooltip.log(`第${index}页中的转发动态全部删除成功`)
                                                 }
-                                                Tooltip.log(`第${index}页中的转发动态全部删除成功`)
+                                                if (offset === '0') break;
                                             }
-                                            if (offset === '0') break;
+                                            p1.resolve();
                                         }
-                                        p1.resolve();
-                                    }
-                                    async function unFollow() {
-                                        if (tagid === 0) { Tooltip.log('未能成功获取关注分区id'); return }
-                                        let rmup = [];
-                                        for (let index = 1; index < 42; index++) {
-                                            const uids = await BiliAPI.getPartitionUID(tagid, index);
-                                            rmup.push(...uids);
-                                            if (uids.length === 0) break;
+                                        async function unFollow() {
+                                            if (tagid === 0) { Tooltip.log('未能成功获取关注分区id'); return }
+                                            let rmup = [];
+                                            for (let index = 1; index < 42; index++) {
+                                                const uids = await BiliAPI.getPartitionUID(tagid, index);
+                                                rmup.push(...uids);
+                                                if (uids.length === 0) break;
+                                            }
+                                            for (let index = 0; index < rmup.length; index++) {
+                                                const uid = rmup[index];
+                                                const reg2 = new RegExp(uid);
+                                                if (!reg2.test(whitelist)) BiliAPI.cancelAttention(uid);
+                                                await Base.delay(Number(time) * 1000);
+                                            }
+                                            p2.resolve();
                                         }
-                                        for (let index = 0; index < rmup.length; index++) {
-                                            const uid = rmup[index];
-                                            const reg2 = new RegExp(uid);
-                                            if (!reg2.test(whitelist)) BiliAPI.cancelAttention(uid);
-                                            await Base.delay(Number(time) * 1000);
-                                        }
-                                        p2.resolve();
-                                    }
-                                    const promptTime = (fn) => Toollayer.prompt(
-                                        '输入停顿时间(单位秒)',
-                                        0,
-                                        (value) => {
-                                            isNaN(value) ? (() => { Toollayer.msg('输入数据不是数字', 2000, 2) })()
-                                                : (() => { time = Number(value); fn(); })();
-                                        }
-                                    );
-                                    Toollayer.confirm(
-                                        '选择删除的内容',
-                                        '移除动态和移除关注最好分开进行',
-                                        ['只删除动态', '只移除关注', '删除动态并移除关注'],
-                                        () => { p2.resolve(); promptTime(delDynamic) },
-                                        () => { p1.resolve(); promptTime(unFollow) },
-                                        () => { promptTime(() => { delDynamic(); unFollow() }) }
-                                    );
-                                    $.when(p1, p2).done(function () {
-                                        Toollayer.confirm(
-                                            '清除成功',
-                                            '成功清除，感谢使用',
-                                            ['确定'],
-                                            () => {
-                                                Toollayer.confirm(
-                                                    '是否清空本地存储',
-                                                    '如果动态数量少于10条，请点击确定以清空本地存储。',
-                                                    ['确定', '取消'],
-                                                    () => { Base.storage.set(GlobalVar.myUID, '{}') }
-                                                )
+                                        const promptTime = (fn) => Toollayer.prompt(
+                                            '输入停顿时间(单位秒)',
+                                            0,
+                                            (value) => {
+                                                isNaN(value) ? Toollayer.msg('输入数据不是数字', 2000, 2)
+                                                    : (() => { time = Number(value); fn(); })();
                                             }
                                         );
-                                    });
-                                },
+                                        Toollayer.confirm(
+                                            '选择删除的内容',
+                                            '移除动态和移除关注最好分开进行',
+                                            ['只删除动态', '只移除关注', '删除动态并移除关注'],
+                                            () => { p2.resolve(); promptTime(delDynamic) },
+                                            () => { p1.resolve(); promptTime(unFollow) },
+                                            () => { promptTime(() => { delDynamic(); unFollow() }) }
+                                        );
+                                        $.when(p1, p2).done(function () {
+                                            Toollayer.confirm(
+                                                '清除成功',
+                                                '成功清除，感谢使用',
+                                                ['确定'],
+                                                () => {
+                                                    Toollayer.confirm(
+                                                        '是否清空本地存储',
+                                                        '如果动态数量少于10条，请点击确定以清空本地存储。',
+                                                        ['确定', '取消'],
+                                                        () => { Base.storage.set(GlobalVar.myUID, '{}') },
+                                                        () => { Toollayer.msg('已取消') }
+                                                    )
+                                                }
+                                            );
+                                        });
+                                    },
                                     () => { Toollayer.msg('已取消') }
                                 )
-                            })
-                        })()
+                            },
+                            () => { Toollayer.msg('已取消') }
+                        );
                         break;
                     case 'save': {
                         let newConfig = {
@@ -2660,17 +2664,18 @@
     }
     /**主函数 */
     (async function main() {
-        addCss('layerCss', 'code{padding:.2em .4em;margin:0;font-size:85%;background-color:rgb(27 31 35 / 5%);border-radius:6px}');
+        Base.addCss('layerCss', 'code{padding:.2em .4em;margin:0;font-size:85%;background-color:rgb(27 31 35 / 5%);border-radius:6px}');
         if (!Base.checkHref(window.location.href) || !Base.checkBrowser(navigator.appVersion)) return;
         await GlobalVar.getAllMyLotteryInfo(); /* 转发信息初始化 */
         const remoteparm = await Base.getMyJson(); /* 获取热更新的默认设置 */
-        config = remoteparm.config; /**初始化设置 */
-        if (remoteparm.version !== Script.version) {
+        config = remoteparm.config; /* 初始化设置 */
+        if (Base.checkVersion(remoteparm.version) > Base.checkVersion(Script.version)) {
             Toollayer.confirm(
                 '更新提醒',
                 `最新版本为 <strong>${remoteparm.version}</strong><br>是否更新?`,
                 ['是', '否'],
-                () => { window.location.href = 'https://greasyfork.org/zh-CN/scripts/412468-bili%E5%8A%A8%E6%80%81%E6%8A%BD%E5%A5%96%E5%8A%A9%E6%89%8B' }
+                () => { window.location.href = 'https://greasyfork.org/zh-CN/scripts/412468-bili%E5%8A%A8%E6%80%81%E6%8A%BD%E5%A5%96%E5%8A%A9%E6%89%8B' },
+                () => { Toollayer.msg('稍后更新') }
             );
         }
         /* 注册事件 BEGIN */
